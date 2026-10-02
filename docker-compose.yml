@@ -1,0 +1,37 @@
+# One command brings up the whole system with seed data:   docker compose up --build
+name: goldstandard
+
+x-pipeline-env: &pipeline-env
+  GS_DATA_DIR: /data
+  GS_DATABASE_URL: postgresql://gs_pipeline:${GS_PIPELINE_PASSWORD:?set in .env}@postgres:5432/goldstandard
+  GS_OWNER_DATABASE_URL: postgresql://gs_owner:${GS_OWNER_PASSWORD:?set in .env}@postgres:5432/goldstandard
+  GS_ESI_USER_AGENT: ${GS_ESI_USER_AGENT:-goldstandard-cpi/0.1}
+  GS_SYNTH_SERVERS: ${GS_SYNTH_SERVERS:-4}
+  GS_SYNTH_DAYS: ${GS_SYNTH_DAYS:-395}
+  GS_SYNTH_SEED: ${GS_SYNTH_SEED:-20251001}
+  GS_LOG_LEVEL: ${GS_LOG_LEVEL:-INFO}
+  DAGSTER_HOME: /opt/dagster/home
+  DAGSTER_PG_PASSWORD: ${GS_PIPELINE_PASSWORD}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: goldstandard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      GS_OWNER_PASSWORD: ${GS_OWNER_PASSWORD}
+      GS_PIPELINE_PASSWORD: ${GS_PIPELINE_PASSWORD}
+      GS_API_PASSWORD: ${GS_API_PASSWORD:?set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    ports: ["${GS_PG_PORT:-5433}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d goldstandard"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
+  lake:
