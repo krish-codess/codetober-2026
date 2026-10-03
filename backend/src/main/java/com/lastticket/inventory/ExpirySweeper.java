@@ -42,18 +42,18 @@ public class ExpirySweeper {
     /** @return holds expired by this call */
     public int sweepOnce() {
         int expired = 0;
-        List<UUID> due;
+        List<UUID[]> due;
         do {
-            due = db.sql("SELECT id FROM reservation WHERE status = 'HELD' AND expires_at <= now() ORDER BY expires_at LIMIT ?")
-                    .param(BATCH).query(UUID.class).list();
+            due = db.sql("SELECT id, inventory_id FROM reservation WHERE status = 'HELD' AND expires_at <= now() ORDER BY expires_at LIMIT ?")
+                    .param(BATCH).query((rs, n) -> new UUID[] {rs.getObject(1, UUID.class), rs.getObject(2, UUID.class)}).list();
             int progressed = 0;
-            for (UUID id : due) {
+            for (UUID[] hold : due) {
                 try {
-                    if (inventory.expire(id)) {
+                    if (inventory.expire(hold[0], hold[1])) {
                         progressed++;
                     }
                 } catch (RuntimeException e) {
-                    log.warn("could not expire reservation {}, leaving it for the next tick: {}", id, e.toString());
+                    log.warn("could not expire reservation {}, leaving it for the next tick: {}", hold[0], e.toString());
                 }
             }
             expired += progressed;

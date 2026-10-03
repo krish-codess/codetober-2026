@@ -17,9 +17,17 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.TestPropertySource;
 
-/** Requirement 1: no oversell under concurrent reservation attempts. */
+/**
+ * Requirement 1: no oversell under concurrent reservation attempts.
+ * Runs with the in-process gate opened to 16 writers per aggregate (as if 16 instances were racing; kept below the 20-connection pool), so what is under
+ * test is the optimistic version check on its own. Every other test class runs with the production default of 1.
+ */
+@TestPropertySource(properties = "lastticket.writers-per-aggregate=16")
 class ReservationConcurrencyTest extends IntegrationTest {
+
+    @org.springframework.beans.factory.annotation.Autowired io.micrometer.core.instrument.MeterRegistry metrics;
 
     @Test
     void manyBuyersFewTickets_neverOversells_andEveryAttemptGetsADefiniteAnswer() throws Exception {
@@ -45,7 +53,9 @@ class ReservationConcurrencyTest extends IntegrationTest {
                 }
             }
         });
-        System.out.println("CONTENTION responses under " + buyers + " simultaneous buyers: " + contention.get());
+        double conflicts = metrics.counter("lastticket.version.conflicts").count();
+        System.out.println("ungated: " + buyers + " simultaneous buyers -> " + (long) conflicts + " version conflicts, " + contention.get() + " CONTENTION responses");
+        assertThat(conflicts).as("the race really happened and the version check really arbitrated it").isPositive();
 
         Position p = position(section);
         assertThat(p.held()).as("held never exceeds stock").isLessThanOrEqualTo(stock);

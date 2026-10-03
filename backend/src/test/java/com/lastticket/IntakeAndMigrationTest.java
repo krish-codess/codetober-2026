@@ -88,10 +88,10 @@ class IntakeAndMigrationTest extends IntegrationTest {
         String url = POSTGRES.getJdbcUrl().replace("/lastticket", "/" + dbName);
         Flyway flyway = Flyway.configure().dataSource(url, POSTGRES.getUsername(), POSTGRES.getPassword())
                 .placeholders(Map.of("app_user", "lastticket_app", "app_password", "app-pw")).load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
 
         try (Connection c = DriverManager.getConnection(url, POSTGRES.getUsername(), POSTGRES.getPassword()); Statement st = c.createStatement()) {
-            for (String script : new String[] {"U2__schema.sql", "U1__app_role.sql"}) {
+            for (String script : new String[] {"U3__drop_unused_as_of_index.sql", "U2__schema.sql", "U1__app_role.sql"}) {
                 st.execute(new String(new ClassPathResource("db/rollback/" + script).getInputStream().readAllBytes(), StandardCharsets.UTF_8)
                         .replace("${app_user}", "lastticket_app"));
             }
@@ -100,6 +100,6 @@ class IntakeAndMigrationTest extends IntegrationTest {
                 assertThat(rs.getInt(1)).as("no application tables left").isZero();
             }
         }
-        assertThat(flyway.migrate().migrationsExecuted).as("clean re-apply after rollback").isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).as("clean re-apply after rollback").isEqualTo(3);
     }
 }

@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 class HoldLifecycleTest extends IntegrationTest {
 
     @Autowired ExpirySweeper sweeper;
+    @Autowired io.micrometer.core.instrument.MeterRegistry metrics;
 
     @Test
     void abandonedHoldCannotBeConfirmedAfterItsDeadline_evenBeforeTheSweeperRuns() {
@@ -74,6 +75,30 @@ class HoldLifecycleTest extends IntegrationTest {
             assertThat(p.sold()).isIn(0, 2);
             assertThat(inventory.find("torn", r.id()).status()).isEqualTo(p.sold() == 2 ? "CONFIRMED" : "RELEASED");
         }
+    }
+
+    /** With the production gate (one writer per aggregate per instance) a stampede is orderly: no conflicts, no 503s. */
+    @Test
+    void gatedStampedeSellsThroughWithoutAVersionConflict() throws Exception {
+        UUID section = newSection(60);
+        double before = metrics.counter("lastticket.version.conflicts").count();
+        java.util.concurrent.atomic.AtomicInteger held = new java.util.concurrent.atomic.AtomicInteger();
+        ReservationConcurrencyTest.runTogether(300, i -> () -> {
+            while (true) {
+                try {
+                    held.addAndGet(inventory.reserve("g-" + i, section, 1 + i % 3, "gated-key-" + i).quantity());
+                    return null;
+                } catch (ApiException e) {
+                    // CONTENTION = queued longer than the gate allows (slow CI disk): nothing happened, retry as a client would.
+                    assertThat(e.code()).isIn("SOLD_OUT", "CONTENTION");
+                    if (e.code().equals("SOLD_OUT")) {
+                        return null;
+                    }
+                }
+            }
+        });
+        assertThat(position(section).held()).isEqualTo(held.get()).isBetween(58, 60);
+        assertThat(metrics.counter("lastticket.version.conflicts").count() - before).isZero();
     }
 
     @Test

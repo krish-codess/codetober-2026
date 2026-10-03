@@ -88,6 +88,7 @@ test('the whole purchase works from the keyboard', async ({ page, request }, tes
   const eventId = await createEvent(request, { opensInSeconds: -5, holdSeconds: 120, floor: 5 })
   await page.goto(`/?event=${eventId}`)
 
+  await expect(page.getByRole('button', { name: 'Join the queue' })).toBeVisible() // rendered once our queue state is known
   await page.keyboard.press('Tab')
   await expect(page.getByRole('button', { name: 'Join the queue' })).toBeFocused()
   await page.keyboard.press('Enter')

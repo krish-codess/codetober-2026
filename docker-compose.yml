@@ -57,6 +57,8 @@ services:
   backend:
     build: ./backend
     env_file: .env
+    # The JVM sizes its heap from the container limit (-XX:MaxRAMPercentage=75); without a limit it would claim 75% of the host.
+    mem_limit: 1g
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

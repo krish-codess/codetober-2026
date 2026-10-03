@@ -50,6 +50,8 @@ public abstract class IntegrationTest {
         r.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
         r.add("lastticket.jwt-secret", () -> "test-secret-test-secret-test-secret-32b");
         r.add("lastticket.admin-api-key", () -> ADMIN_KEY);
+        // Stampede tests queue 64 threads on a 20-connection pool; production fails fast at 2 s, a slow CI disk needs longer.
+        r.add("spring.datasource.hikari.connection-timeout", () -> "20000");
         // Tests drive the sweeper by hand so its timing is deterministic.
         r.add("lastticket.sweeper-interval-ms", () -> "3600000");
     }

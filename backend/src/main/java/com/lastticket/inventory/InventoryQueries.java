@@ -52,6 +52,7 @@ public class InventoryQueries {
     private final JdbcClient db;
     private final StringRedisTemplate redis;
     private final ObjectMapper json;
+    private final Map<UUID, EventView> events = new java.util.concurrent.ConcurrentHashMap<>();
 
     public InventoryQueries(JdbcClient db, StringRedisTemplate redis, ObjectMapper json) {
         this.db = db;
@@ -59,10 +60,20 @@ public class InventoryQueries {
         this.json = json;
     }
 
+    /**
+     * sale_event rows are immutable (the app role cannot even UPDATE them), so once read they are served from memory:
+     * waiting-room joins and polls, the busiest calls of an on-sale, never touch Postgres. serverTime is then this
+     * instance's clock; hold deadlines are always judged by the database's.
+     */
     public EventView event(UUID eventId) {
-        return db.sql("SELECT id, name, on_sale_at, hold_seconds, max_per_user, admission_rate_per_sec, now() AS server_time FROM sale_event WHERE id = ?")
-                .param(eventId).query(InventoryQueries::mapEvent).optional()
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND", "No such event."));
+        EventView e = events.get(eventId);
+        if (e == null) {
+            e = db.sql("SELECT id, name, on_sale_at, hold_seconds, max_per_user, admission_rate_per_sec, now() AS server_time FROM sale_event WHERE id = ?")
+                    .param(eventId).query(InventoryQueries::mapEvent).optional()
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND", "No such event."));
+            events.put(eventId, e);
+        }
+        return new EventView(e.id(), e.name(), e.onSaleAt(), e.holdSeconds(), e.maxPerUser(), e.admissionRatePerSec(), Instant.now());
     }
 
     /** Keyset page ordered by (on_sale_at, id). */
