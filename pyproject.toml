@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tydlc"
+version = "0.1.0"
+description = "Test Your Data Like Code: property-based testing for data pipelines"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "hypothesis>=6.100",
+    "duckdb>=1.0",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "psycopg[binary]>=3.1",
+    "prometheus-client>=0.20",
+]
+dev = [
+    "tydlc[server]",
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "playwright>=1.45",
+    "build>=1.2",
+]
+
+[project.scripts]
+tydlc = "tydlc.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tydlc"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S608"]
+
+[tool.ruff.lint.per-file-ignores]
+# Identifiers interpolated in these modules come from the in-code Schema, never from input.
+"src/tydlc/engine.py" = ["S608"]
+"src/tydlc/ingest.py" = ["S608"]
+"src/tydlc/runner.py" = ["S608"]
+# Constant fragments concatenated at import time; every value is a bound parameter.
+"src/tydlc/store.py" = ["S608"]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs a real PostgreSQL (DATABASE_URL)",
+    "e2e: needs a browser (playwright)",
+]
