@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import duckdb
@@ -64,19 +64,26 @@ class Lake:
         params: list[object] | None = None,
     ) -> pl.DataFrame:
         """DuckDB scan with partition pruning on dt and projection pushdown on `columns`.
-        `where` is a trusted, code-defined SQL fragment; every value goes through `params`."""
-        glob = (self.root / dataset / f"w={world}" / "dt=*" / "part-0.parquet").as_posix()
-        if not self.days(dataset, world):
+        `where` is a trusted, code-defined SQL fragment; every value goes through `params`.
+
+        Pruning happens before DuckDB sees anything: only the partition files inside [start, end] are
+        resolved (O(range) existence checks, not a glob over the whole history), then DuckDB reads only
+        the requested columns from those files."""
+        if start is not None and end is not None:
+            span = (end - start).days + 1
+            candidates = [self._dir(dataset, world, start + timedelta(days=i)) / "part-0.parquet" for i in range(span)]
+            files = [f.as_posix() for f in candidates if f.exists()]
+        else:
+            files = [
+                (self._dir(dataset, world, d) / "part-0.parquet").as_posix()
+                for d in self.days(dataset, world)
+                if (start is None or d >= start) and (end is None or d <= end)
+            ]
+        if not files:
             return pl.DataFrame()
         cols = ", ".join(f'"{c}"' for c in columns) if columns else "* EXCLUDE (w, dt)"
         sql = f"SELECT {cols} FROM read_parquet(?, hive_partitioning = true, union_by_name = true) WHERE true"  # noqa: S608
-        args: list[object] = [glob]
-        if start is not None:
-            sql += " AND dt >= ?"
-            args.append(start)
-        if end is not None:
-            sql += " AND dt <= ?"
-            args.append(end)
+        args: list[object] = [files]
         if where:
             sql += f" AND ({where})"
             args.extend(params or [])

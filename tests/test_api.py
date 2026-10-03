@@ -68,7 +68,7 @@ def test_metrics_and_correlation_id(client):
 def test_worlds(client):
     worlds = {w["world_id"]: w for w in client.get("/v1/worlds").json()}
     assert worlds["eve"]["price_source"] == "trade_history" and not worlds["eve"]["is_synthetic"]
-    assert {s["server_id"] for s in worlds["synthetic"]["servers"]} == {"syn-aurora", "syn-borealis"}
+    assert {s["server_id"] for s in worlds["synthetic"]["servers"]} == {"syn-aurora", "syn-borealis", "syn-cinder"}
     assert worlds["synthetic"]["activities"]
 
 

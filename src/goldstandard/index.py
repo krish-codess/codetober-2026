@@ -16,7 +16,10 @@ Index of series S (a server or all servers, a division or all) on day t in perio
     R_g,t = sum_{i in g, observed} w_i (p_i,t / p0_i) / sum_{i in g, observed} w_i
   with groups g = (server, division). An item without a price at t is NOT given a price; its
   weight is carried by the observed items of its own group (standard CPI cell-relative
-  imputation). Coverage = observed weight / total weight. Coverage < MIN_COVERAGE -> no value.
+  imputation) - but only if at least GROUP_MIN_COVERAGE of the group's weight was observed;
+  otherwise the whole group drops out and its weight is carried by the other groups of the
+  series (imputation moves up a level instead of letting a small remnant speak for the group).
+  Coverage = observed weight / total weight. Coverage < MIN_COVERAGE -> no value.
 
 Chain link: L_P(S) = L_{P-1}(S) * J, J = the old basket's aggregate relative evaluated at the
   link-window prices. The first period of a world has L = 100 (index reference = 100).
@@ -31,15 +34,17 @@ from datetime import date, timedelta
 import numpy as np
 import polars as pl
 
-METHOD_VERSION = "gs-1.0"
+from goldstandard.taxonomy import BASKET_VALUE
+
 WEIGHT_CAP = 0.20
 ELIGIBLE_SHARE = 0.5
 LINK_DAYS = 7
 MIN_REF_DAYS = 21
 OK_COVERAGE = 0.9
 MIN_COVERAGE = 0.5
-BASKET_VALUE = 1_000_000.0  # currency units the base basket costs at base prices (for labour-hours)
 ALL = "all"
+GROUP_MIN_COVERAGE = 0.5  # a group speaks for its own missing items only if half its weight was observed
+GROUP_OK = pl.col("O") >= GROUP_MIN_COVERAGE * pl.col("W")
 
 
 @dataclass(frozen=True)
@@ -175,8 +180,8 @@ def aggregate(groups: pl.DataFrame, servers: list[str], divisions: list[str]) ->
             if g.is_empty():
                 continue
             agg = g.group_by("day").agg(
-                num=(pl.col("W") * pl.col("WR") / pl.col("O")).filter(pl.col("O") > 0).sum(),
-                den=pl.col("W").filter(pl.col("O") > 0).sum(),
+                num=(pl.col("W") * pl.col("WR") / pl.col("O")).filter(GROUP_OK).sum(),
+                den=pl.col("W").filter(GROUP_OK).sum(),
                 coverage=pl.col("O").sum() / pl.col("W").sum(),
                 n_items=pl.col("n_obs").sum().cast(pl.Int32),
             )
@@ -193,7 +198,9 @@ def aggregate(groups: pl.DataFrame, servers: list[str], divisions: list[str]) ->
             }
         )
     res = pl.concat(out).with_columns(rel=pl.when(pl.col("den") > 0).then(pl.col("num") / pl.col("den")))
-    return res.select("scope", "division", "day", "rel", pl.col("coverage").clip(0, 1), "n_items")
+    # Parallel float sums are not order-deterministic in the last bits; publishing rounds coverage (9 dp) and
+    # values (6 dp) so a rebuild from raw is bit-for-bit identical (test_index_is_reproducible_from_raw...).
+    return res.select("scope", "division", "day", "rel", pl.col("coverage").clip(0, 1).round(9), "n_items")
 
 
 def link_factors(

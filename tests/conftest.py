@@ -18,12 +18,13 @@ SMALL_ITEMS = (34, 35, 36, 587, 2048, 28668, 44992, 4051, 16272, 3689, 209, 1747
 
 
 def small_config(**kw) -> synthetic.SynthConfig:
-    return synthetic.SynthConfig(start=date(2025, 9, 1), servers=2, seed=7, items=SMALL_ITEMS, **kw)
+    # 3 servers: the minimum for cross-server consensus, so integration tests exercise it as production does
+    return synthetic.SynthConfig(start=date(2025, 9, 1), servers=3, seed=7, items=SMALL_ITEMS, **kw)
 
 
 @pytest.fixture(scope="session")
 def small_world(tmp_path_factory) -> dict:
-    """Two servers, 12 items, 45 days of synthetic snapshots with all defect types enabled."""
+    """Three servers, 12 items, 45 days of synthetic snapshots with all defect types enabled."""
     root = tmp_path_factory.mktemp("small_world")
     store = RawStore(root / "raw")
     cfg = small_config()
@@ -85,7 +86,7 @@ def make_settings(data_dir: Path, dsns: dict) -> Settings:
         database_url=SecretStr(dsns["pipeline"]),
         api_database_url=SecretStr(dsns["api"]),
         synth_start=date(2025, 9, 1),
-        synth_servers=2,
+        synth_servers=3,
         log_json=False,
     )
 

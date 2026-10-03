@@ -1,17 +1,26 @@
-# One command brings up the whole system with seed data:   docker compose up --build
+# The whole system with seed data, one command:   cp .env.example .env && docker compose up --build
+#   http://localhost:8080  frontend   http://localhost:8000/docs  API   http://localhost:3000  Dagster
 name: goldstandard
 
 x-pipeline-env: &pipeline-env
   GS_DATA_DIR: /data
   GS_DATABASE_URL: postgresql://gs_pipeline:${GS_PIPELINE_PASSWORD:?set in .env}@postgres:5432/goldstandard
-  GS_OWNER_DATABASE_URL: postgresql://gs_owner:${GS_OWNER_PASSWORD:?set in .env}@postgres:5432/goldstandard
   GS_ESI_USER_AGENT: ${GS_ESI_USER_AGENT:-goldstandard-cpi/0.1}
   GS_SYNTH_START: ${GS_SYNTH_START:-2025-09-01}
   GS_SYNTH_SERVERS: ${GS_SYNTH_SERVERS:-4}
   GS_SYNTH_SEED: ${GS_SYNTH_SEED:-20251001}
+  GS_SYNTH_SNAPSHOTS_PER_DAY: ${GS_SYNTH_SNAPSHOTS_PER_DAY:-4}
   GS_LOG_LEVEL: ${GS_LOG_LEVEL:-INFO}
+  GS_LOG_JSON: ${GS_LOG_JSON:-true}
   DAGSTER_HOME: /opt/dagster/home
   DAGSTER_PG_PASSWORD: ${GS_PIPELINE_PASSWORD}
+
+x-pipeline-image: &pipeline-image
+  image: goldstandard-pipeline:${GS_IMAGE_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/python.Dockerfile
+    args: { EXTRAS: pipeline }
 
 services:
   postgres:
@@ -19,7 +28,7 @@ services:
     environment:
       POSTGRES_DB: goldstandard
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
-      GS_OWNER_PASSWORD: ${GS_OWNER_PASSWORD}
+      GS_OWNER_PASSWORD: ${GS_OWNER_PASSWORD:?set in .env}
       GS_PIPELINE_PASSWORD: ${GS_PIPELINE_PASSWORD}
       GS_API_PASSWORD: ${GS_API_PASSWORD:?set in .env}
     volumes:
@@ -31,6 +40,85 @@ services:
       interval: 3s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
+
+  # one-shot: schema migrations (as the schema owner) + bootstrap admin API key (stored hashed)
+  migrate:
+    <<: *pipeline-image
+    command: ["sh", "-c", "goldstandard migrate up && goldstandard create-api-key --key-id admin"]
+    environment:
+      <<: *pipeline-env
+      GS_OWNER_DATABASE_URL: postgresql://gs_owner:${GS_OWNER_PASSWORD}@postgres:5432/goldstandard
+      GS_BOOTSTRAP_ADMIN_KEY: ${GS_BOOTSTRAP_ADMIN_KEY:?set in .env}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  # one-shot, idempotent: real EVE snapshot (+ live top-up unless offline) + synthetic feed + full pipeline
+  seed:
+    <<: *pipeline-image
+    command: ["sh", "-c", "goldstandard seed ${GS_SEED_ARGS:---offline}"]
+    environment: *pipeline-env
+    volumes: ["lake:/data"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
+
+  api:
+    image: goldstandard-api:${GS_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { EXTRAS: api }
+    environment:
+      GS_API_DATABASE_URL: postgresql://gs_api:${GS_API_PASSWORD}@postgres:5432/goldstandard
+      GS_LOG_LEVEL: ${GS_LOG_LEVEL:-INFO}
+      GS_STALE_AFTER_HOURS: ${GS_STALE_AFTER_HOURS:-48}
+      GS_CORS_ORIGINS: ${GS_CORS_ORIGINS:-http://localhost:8080}
+    command: ["uvicorn", "goldstandard.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2",
+              "--proxy-headers", "--no-server-header"]
+    ports: ["${GS_API_PORT:-8000}:8000"]
+    healthcheck:
+      # readiness exercises PostgreSQL; 503 when it is unreachable (stale data is 200 "degraded")
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  dagster-webserver:
+    <<: *pipeline-image
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "goldstandard.defs"]
+    environment: *pipeline-env
+    volumes: ["lake:/data"]
+    ports: ["${GS_DAGSTER_PORT:-3000}:3000"]
+    depends_on:
+      seed: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  # schedules (ingestion) + sensors (changed partitions -> targeted runs); starts after the seed so
+  # the two never process the same partitions concurrently
+  dagster-daemon:
+    <<: *pipeline-image
+    command: ["dagster-daemon", "run", "-m", "goldstandard.defs"]
+    environment: *pipeline-env
+    volumes: ["lake:/data"]
+    depends_on:
+      seed: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  frontend:
+    image: goldstandard-frontend:${GS_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports: ["${GS_WEB_PORT:-8080}:8080"]
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
 
 volumes:
   pgdata:

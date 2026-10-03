@@ -55,8 +55,7 @@ from goldstandard.api.models import (
     Yield,
 )
 from goldstandard.config import settings
-from goldstandard.index import BASKET_VALUE
-from goldstandard.reference import tag_divisions
+from goldstandard.taxonomy import BASKET_VALUE, tag_divisions
 
 router = APIRouter(prefix="/v1")
 MAX_SPAN_DAYS = 1830
@@ -579,7 +578,7 @@ def list_manipulation(
     c: Conn,
     world: SlugQ,
     server: SlugQ,
-    kind: Annotated[str | None, Query(pattern=r"^(extreme_listing|hampel_reject|thin_market_spike)$")] = None,
+    kind: Annotated[str | None, Query(pattern=r"^(extreme_listing|rejected_price|thin_market_spike)$")] = None,
     min_severity: Annotated[float, Query(ge=0)] = 0.0,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,

@@ -565,7 +565,7 @@ def parse_patch_rss(xml_text: str, default_hour_utc: int = 11) -> list[PatchNote
         body = html.unescape(item.findtext("description") or "")
         pub = item.findtext("pubDate")
         version = None
-        m = re.search(r"Version (\d+\.\d+)", title)
+        m = re.search(r"Version ([A-Z]?\d+\.\d+)", title)
         if m:
             version = m[1]
         parts = section.split(body)
@@ -582,7 +582,7 @@ def parse_patch_rss(xml_text: str, default_hour_utc: int = 11) -> list[PatchNote
                     pid,
                     released,
                     version,
-                    f"Patch {pid}" + (f" (v{version})" if version else ""),
+                    f"{title} · {pid}"[:300] if title else f"Patch {pid}",
                     notes[:100000],
                     False,
                 )

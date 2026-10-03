@@ -458,7 +458,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "extreme_listing" | "hampel_reject" | "thin_market_spike";
+            kind: "extreme_listing" | "rejected_price" | "thin_market_spike";
             /** N Obs */
             n_obs: number;
             /** Server Id */

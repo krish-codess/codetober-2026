@@ -32,15 +32,21 @@ from goldstandard.fills import infer_fills
 from goldstandard.lake import Lake, fingerprint
 from goldstandard.obs import log, metrics
 from goldstandard.raw import RawRef, RawStore
-from goldstandard.reference import build_reference, tag_divisions
+from goldstandard.reference import build_reference
+from goldstandard.taxonomy import METHOD_VERSION, tag_divisions
 
 logger = logging.getLogger(__name__)
 WORLDS = ("synthetic", "eve")
 SOURCE = {"synthetic": "synthetic", "eve": "eve"}
-METHOD = {"synthetic": "lowq_ask_hampel_v1", "eve": "hampel_vwap_v1"}
+METHOD = {"synthetic": "lowq_ask_consensus_v2", "eve": "vwap_consensus_v2"}
 REVISION_REASON = {"synthetic": "late_data", "eve": "source_revision"}
 BASKET_GRACE_DAYS = 3  # late snapshots arrive up to 3 days late: freeze a basket only after that
 HAMPEL_DEPENDENTS = estimators.HAMPEL_WINDOW
+TRAIL_DAYS = 45  # calendar days of history read for the Hampel window (14 observations, allowing gaps)
+
+
+class PipelineInvariantError(RuntimeError):
+    """The published state contradicts what the run should have produced."""
 
 
 @dataclass
@@ -73,6 +79,7 @@ class Pipeline:
         self.cfg = cfg
         self.store = RawStore(cfg.raw_dir)
         self.lake = Lake(cfg.lake_dir)
+        self._trail: tuple[str, date, pl.DataFrame] | None = None  # see _trailing
 
     # ------------------------------------------------------------------------------ reference
     @cached_property
@@ -131,7 +138,13 @@ class Pipeline:
         done = db.get_fingerprints(conn, world)
         today = datetime.now(UTC).date()
         days = [d for d in self.candidate_days(world) if d < today]  # only complete UTC days
-        changed = {d for d in days if done.get(d) != self.day_fingerprint(world, d)}
+        # processed = same inputs fingerprint AND its lake output still exists (a lost/empty lake volume
+        # must trigger a rebuild, not leave the database claiming work that the lake no longer holds)
+        changed = {
+            d
+            for d in days
+            if done.get(d) != self.day_fingerprint(world, d) or not self.lake.exists("daily_prices", world, d)
+        }
         dependents = HAMPEL_DEPENDENTS  # a day's Hampel decision reads the previous 14 observations
         available = set(days)
         for d in list(changed):
@@ -146,14 +159,21 @@ class Pipeline:
 
     # ------------------------------------------------------------------------------ history world
     def stage_history(self) -> list[date]:
-        """Parse every raw history fetch (latest fetch wins per day) into lake partitions; rewrite only
-        partitions whose content changed. Returns the days rewritten."""
+        """Parse the latest history fetch of every (region, item) into lake partitions; rewrite only
+        partitions whose content changed. Returns the days rewritten.
+
+        Each ESI fetch carries the whole ~13-month window, so for the days it covers the latest fetch
+        supersedes all older ones ("latest fetch wins"). Days that have aged out of ESI's window are
+        already staged and keep their last staged value. Work is therefore bounded by the number of
+        series, not by how long the system has been running."""
         t0 = time.perf_counter()
-        recs = [
-            self.store.read(r)
-            for d in self.store.days("eve", "market_history")
-            for r in self.store.iter_refs("eve", "market_history", d)
-        ]
+        newest_day: dict[str, date] = {}
+        candidates: list[RawRef] = []
+        for d in reversed(self.store.days("eve", "market_history")):
+            for r in self.store.iter_refs("eve", "market_history", d):
+                if newest_day.setdefault(r.key, d) == d:  # every fetch of the newest day (ties broken by fetched_at)
+                    candidates.append(r)
+        recs = [self.store.read(r) for r in candidates]  # parse_history keeps the latest fetched_at per day
         cells = self.expected_cells("eve")
         parsed = parse.parse_history(recs, set(cells["item_id"].to_list()), set(self.servers("eve")))
         rewritten = []
@@ -177,38 +197,29 @@ class Pipeline:
         )
         return sorted(rewritten)
 
-    def _history_daily(self, days: list[date]) -> pl.DataFrame:
-        lo = min(days) - timedelta(days=60)
-        hist = self.lake.scan("history", "eve", start=lo, end=max(days))
-        h = estimators.hampel_daily(hist) if not hist.is_empty() else hist
-        grid = self.expected_cells("eve").join(pl.DataFrame({"day": days}), how="cross")
-        out = grid.join(h, on=["server_id", "item_id", "day"], how="left") if not h.is_empty() else grid
-        return (
-            out.with_columns(
-                status=pl.coalesce(pl.col("status"), pl.lit("missing"))
-                if "status" in out.columns
-                else pl.lit("missing"),
+    def _history_raw_daily(self, day: date) -> pl.DataFrame:
+        """One day of ESI history -> raw daily prices for every expected cell (absent = missing)."""
+        grid = self.expected_cells("eve").with_columns(day=pl.lit(day))
+        staged = self.lake.read_day("history", "eve", day)
+        if staged is None or staged.is_empty():
+            return grid.with_columns(
+                raw_price=pl.lit(None, pl.Float64),
+                volume=pl.lit(None, pl.Float64),
+                n_obs=pl.lit(0, pl.Int32),
+                status=pl.lit("missing"),
             )
-            .with_columns(
-                price=pl.when(pl.col("status") == "ok").then(pl.col("average")),
-                raw_price=pl.col("average"),
-                volume=pl.col("volume").cast(pl.Float64),
-                n_obs=pl.col("order_count").fill_null(0).cast(pl.Int32),
-                hampel_ref=pl.col("ref").exp(),
-                hampel_z=pl.col("robust_z"),
-            )
-            .select(
-                "server_id",
-                "item_id",
-                "day",
-                "price",
-                "volume",
-                "n_obs",
-                "status",
-                "raw_price",
-                "hampel_ref",
-                "hampel_z",
-            )
+        return grid.join(
+            staged.select("server_id", "item_id", "average", "volume", "order_count"),
+            on=["server_id", "item_id"],
+            how="left",
+        ).select(
+            "server_id",
+            "item_id",
+            "day",
+            pl.col("average").alias("raw_price"),
+            pl.col("volume").cast(pl.Float64),
+            pl.col("order_count").fill_null(0).cast(pl.Int32).alias("n_obs"),
+            status=pl.when(pl.col("average").is_not_null()).then(pl.lit("ok")).otherwise(pl.lit("missing")),
         )
 
     # ------------------------------------------------------------------------------ snapshot world
@@ -234,40 +245,43 @@ class Pipeline:
             frames.insert(0, prev.join(last, on=["server_id", "item_id", "snapshot_ts"]))
         fills = infer_fills(pl.concat(frames)).filter(pl.col("snapshot_ts").dt.date() == day)
         daily = estimators.daily_from_snapshots(snaps, self.expected_cells(world), day)
-        vol = fills.group_by("server_id", "item_id").agg(volume=pl.col("fill_qty").sum().cast(pl.Float64))
+        vol = fills.group_by("server_id", "item_id").agg(
+            volume=pl.col("fill_qty").sum().cast(pl.Float64),
+            trade_vwap=pl.when(pl.col("fill_qty").sum() > 0).then(
+                pl.col("fill_value").sum() / pl.col("fill_qty").sum()
+            ),
+        )
         daily = daily.join(vol, on=["server_id", "item_id"], how="left").with_columns(pl.col("volume").fill_null(0.0))
-        return self._temporal_filter(world, day, daily), fills
+        return daily.rename({"price": "raw_price"}), fills
 
-    def _temporal_filter(self, world: str, day: date, daily: pl.DataFrame) -> pl.DataFrame:
-        """Second robustness layer: causal Hampel on the daily series (same rule as the history path).
-        A book captured wholesale by trolls, which no single-snapshot estimator can see, is rejected here."""
-        daily = daily.with_columns(raw_price=pl.col("price"))
-        cols = ["server_id", "item_id", "day", "raw_price"]
-        trail = self.lake.scan(
-            "daily_prices", world, start=day - timedelta(days=45), end=day - timedelta(days=1), columns=cols
+    def _accepted_before(self, world: str, day: date) -> pl.DataFrame:
+        """Accepted prices of the TRAIL_DAYS before `day`. Kept in memory across consecutive days of one
+        run (a seed processes hundreds of days in order); re-read from the lake only after a gap."""
+        if self._trail and self._trail[0] == world and self._trail[1] == day - timedelta(days=1):
+            return self._trail[2]
+        return self.lake.scan(
+            "daily_prices",
+            world,
+            start=day - timedelta(days=TRAIL_DAYS),
+            end=day - timedelta(days=1),
+            columns=["server_id", "item_id", "day", "price"],
         )
-        frames = [daily.select(cols)] + ([trail.select(cols)] if not trail.is_empty() else [])
-        hist = pl.concat(frames).rename({"raw_price": "average"}).drop_nulls("average")
-        h = (
-            estimators.hampel_daily(hist)
-            .filter(pl.col("day") == day)
-            .select(
-                "server_id",
-                "item_id",
-                pl.col("status").alias("hampel"),
-                pl.col("ref").exp().alias("hampel_ref"),
-                pl.col("robust_z").alias("hampel_z"),
-            )
+
+    def _accept(self, world: str, day: date, raw: pl.DataFrame) -> pl.DataFrame:
+        """Second robustness layer (estimators.robust_daily): cross-server consensus, else causal Hampel."""
+        trailing = self._accepted_before(world, day)
+        res = estimators.robust_daily(raw, trailing)
+        daily = res.with_columns(
+            status=pl.when(pl.col("rejected")).then(pl.lit("rejected")).otherwise(pl.col("status"))
         )
-        rejected = (pl.col("hampel") == "rejected").fill_null(False)
-        return (
-            daily.join(h, on=["server_id", "item_id"], how="left")
-            .with_columns(
-                status=pl.when(rejected).then(pl.lit("rejected")).otherwise(pl.col("status")),
-                price=pl.when(rejected).then(None).otherwise(pl.col("price")),
-            )
-            .drop("hampel")
+        cols = ["server_id", "item_id", "day", "price"]
+        frames = [daily.select(cols)] + ([trailing.select(cols)] if not trailing.is_empty() else [])
+        self._trail = (
+            world,
+            day,
+            pl.concat(frames, how="vertical_relaxed").filter(pl.col("day") > day - timedelta(days=TRAIL_DAYS)),
         )
+        return daily.drop("rejected")
 
     # ------------------------------------------------------------------------------ per-day processing
     def process_days(
@@ -278,7 +292,6 @@ class Pipeline:
             return report
         t0 = time.perf_counter()
         days = sorted(days)
-        history_daily = self._history_daily(days) if world == "eve" else None
         done = db.get_fingerprints(conn, world)
         for day in days:
             quality: dict[str, Any] | None
@@ -301,11 +314,11 @@ class Pipeline:
                     report.quarantined += parsed.quarantine.height
                 else:  # only a dependency changed: reuse the validated lake partition
                     quality = None
-                daily, fills = self._snapshot_daily(world, day, staged)
+                raw, fills = self._snapshot_daily(world, day, staged)
                 self.lake.write("fills", world, day, fills)
+                daily = self._accept(world, day, raw)
             else:
-                assert history_daily is not None
-                daily = history_daily.filter(pl.col("day") == day)
+                daily = self._accept(world, day, self._history_raw_daily(day))
                 staged = self.lake.read_day("history", "eve", day)
                 n = 0 if staged is None else staged.height
                 quality = {
@@ -393,9 +406,7 @@ class Pipeline:
                 )
                 j = index.link_factors(prev_basket, link_prices, servers, divs)
                 links = {k: old_links[k] * v for k, v in j.items() if k in old_links}
-            db.freeze_basket(
-                conn, p, index.METHOD_VERSION, basket, {series[k]: v for k, v in links.items() if k in series}
-            )
+            db.freeze_basket(conn, p, METHOD_VERSION, basket, {series[k]: v for k, v in links.items() if k in series})
             conn.commit()
             frozen.append(p.period_id)
             prev = p
@@ -461,7 +472,7 @@ class Pipeline:
                 .join(hashes, on="day", how="left")
                 .with_columns(
                     period_id=pl.lit(period_id),
-                    method_version=pl.lit(index.METHOD_VERSION),
+                    method_version=pl.lit(METHOD_VERSION),
                     input_hash=pl.col("input_hash").fill_null("0" * 16),
                     reason=pl.lit(REVISION_REASON[world]),
                 )
@@ -533,7 +544,7 @@ class Pipeline:
                 "shock",
                 "series_id = ANY(%s)",
                 [ids],
-                ["series_id", "day", "log_change", "robust_z", "direction"],
+                ["series_id", "day", "log_change", "robust_z", "direction", "persistence"],
                 shocks,
             ),
             "shock_attribution": db.replace_rows(
@@ -581,11 +592,36 @@ class Pipeline:
         todo = self.changed_days(conn, world) if days is None else sorted(days)
         self.process_days(conn, world, todo, report)
         self.index_days(conn, world, todo, series, report)
+        self.verify_published(conn, world)
         t0 = time.perf_counter()
         self.run_analytics(conn, world, series)
         report.timings["analytics"] = time.perf_counter() - t0
         log(logger, logging.INFO, "pipeline run complete", **report.as_dict())
         return report
+
+    def verify_published(self, conn: psycopg.Connection, world: str) -> None:
+        """Post-condition of every run: a run that processed prices but left a complete period without
+        a frozen basket, or a frozen period without index values, is a failed run - raise, so the
+        orchestrator shows red instead of reporting success over a silently missing index."""
+        problems = []
+        last = max(self.lake.days("daily_prices", world), default=None)
+        for p in self.periods(world):
+            if last is None or (last < p.ref_to + timedelta(days=BASKET_GRACE_DAYS) and last < p.valid_to):
+                continue  # not due yet
+            row = conn.execute(
+                """SELECT (SELECT count(*) FROM basket_item WHERE world_id = %s AND period_id = %s),
+                          (SELECT count(*) FROM index_value v JOIN index_series s USING (series_id)
+                           WHERE s.world_id = %s AND v.period_id = %s)""",
+                (world, p.period_id, world, p.period_id),
+            ).fetchone()
+            n_cells, n_values = row if row else (0, 0)
+            if n_cells == 0:
+                problems.append(f"{p.period_id}: reference period complete but no basket frozen")
+            elif n_values == 0:
+                problems.append(f"{p.period_id}: basket frozen but no index values published")
+        if problems:
+            metrics.inc("pipeline_invariant_failures", len(problems), world=world)
+            raise PipelineInvariantError(f"{world}: " + "; ".join(problems))
 
 
 def _manifest(r: Any) -> dict[str, Any]:

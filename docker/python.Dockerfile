@@ -14,8 +14,10 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project --extra ${EXTRAS}
 COPY src ./src
+# --reinstall-package: uv caches local builds keyed on pyproject.toml only; without it a code change
+# with an unchanged version would silently ship the previously built wheel.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable --extra ${EXTRAS}
+    uv sync --frozen --no-dev --no-editable --extra ${EXTRAS} --reinstall-package goldstandard
 
 FROM ${PYTHON} AS runtime
 # pip/setuptools are build tooling: the runtime never installs anything.

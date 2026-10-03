@@ -1,122 +1,131 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useRef } from 'react'
+import { ErrorPanel, Progress } from './components/States'
+import { invalidate } from './lib/api'
+import type { World } from './lib/api'
+import { day } from './lib/format'
+import { useUrlState } from './lib/urlState'
+import { useApi } from './lib/useApi'
+import { IndexPage } from './pages/IndexPage'
+import { InflationPage } from './pages/InflationPage'
+import { IntegrityPage } from './pages/IntegrityPage'
+import { PowerPage } from './pages/PowerPage'
 
-function App() {
-  const [count, setCount] = useState(0)
+const TABS = [
+  { id: 'index', label: 'Price index' },
+  { id: 'power', label: 'Purchasing power' },
+  { id: 'inflation', label: 'Inflation' },
+  { id: 'integrity', label: 'Market integrity' },
+] as const
+
+export default function App() {
+  const [tab, setTab] = useUrlState('tab', 'index')
+  const [worldId, setWorldId] = useUrlState('world', 'eve')
+  const [server, setServer] = useUrlState('server', 'all')
+  const worlds = useApi<World[]>('/v1/worlds')
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const panelRef = useRef<HTMLDivElement>(null)
+  const world = worlds.data?.find((w) => w.world_id === worldId) ?? worlds.data?.[0]
+  const serverOk = server === 'all' || world?.servers.some((s) => s.server_id === server)
+
+  function onTabKey(e: React.KeyboardEvent, i: number) {
+    const n = TABS.length
+    const next = e.key === 'ArrowRight' ? (i + 1) % n : e.key === 'ArrowLeft' ? (i - 1 + n) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1
+    if (next < 0) return
+    e.preventDefault()
+    setTab(TABS[next].id)
+    tabRefs.current[next]?.focus()
+  }
+
+  function switchWorld(id: string) {
+    setWorldId(id)
+    setServer('all')
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app">
+      <a href="#main" className="skip">
+        Skip to content
+      </a>
+      <header className="top">
+        <div className="brand">
+          <span className="logo" aria-hidden="true">
+            Au
+          </span>
+          <div>
+            <h1>GOLD STANDARD</h1>
+            <p className="tagline">A consumer price index for video game economies</p>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+        {worlds.data && (
+          <fieldset className="segmented world">
+            <legend className="sr-only">Economy</legend>
+            {worlds.data.map((w) => (
+              <label key={w.world_id}>
+                <input type="radio" name="world" checked={world?.world_id === w.world_id} onChange={() => switchWorld(w.world_id)} />
+                {w.is_synthetic ? 'Simulated shard' : 'EVE Online (real)'}
+              </label>
+            ))}
+          </fieldset>
+        )}
         <button
           type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          className="ghost"
+          onClick={() => {
+            invalidate()
+            worlds.reload()
+          }}
+          title="Refetch everything (the cache otherwise keeps data for 60 s)"
         >
-          Count is {count}
+          ↻ Refresh
         </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <nav aria-label="Views">
+        <div role="tablist" aria-label="Views" className="tabs">
+          {TABS.map((t, i) => (
+            <button
+              key={t.id}
+              ref={(el) => {
+                tabRefs.current[i] = el
+              }}
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls="main"
+              tabIndex={tab === t.id ? 0 : -1}
+              onClick={() => {
+                setTab(t.id)
+                panelRef.current?.focus()
+              }}
+              onKeyDown={(e) => onTabKey(e, i)}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      </nav>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <main id="main" role="tabpanel" aria-labelledby={`tab-${tab}`} tabIndex={-1} ref={panelRef}>
+        {worlds.loading && !worlds.data && <Progress done={0} total={1} what="economies" />}
+        {worlds.error && <ErrorPanel error={worlds.error} onRetry={worlds.reload} />}
+        {world && (
+          <>
+            <p className="world-note muted">
+              {world.name}: {world.is_synthetic ? 'simulated auction snapshots with known ground truth' : 'real ESI daily trade history'} ·
+              {' '}
+              {world.servers.length} servers · data through {world.freshness.last_day ? day(world.freshness.last_day) : '—'}
+            </p>
+            {tab === 'index' && <IndexPage key={world.world_id} world={world} server={serverOk ? server : 'all'} setServer={setServer} />}
+            {tab === 'power' && <PowerPage key={world.world_id} world={world} server={serverOk ? server : 'all'} setServer={setServer} />}
+            {tab === 'inflation' && <InflationPage key={world.world_id} world={world} server={serverOk ? server : 'all'} setServer={setServer} />}
+            {tab === 'integrity' && <IntegrityPage key={world.world_id} world={world} server={serverOk ? server : 'all'} setServer={setServer} />}
+          </>
+        )}
+      </main>
+      <footer className="muted">
+        Index: chain-linked Laspeyres, quarterly volume weights, robust prices. Published values are append-only — a
+        revision is a new vintage, never an overwrite. Data: EVE Online ESI (CCP Games) and a calibrated simulation.
+      </footer>
+    </div>
   )
 }
-
-export default App

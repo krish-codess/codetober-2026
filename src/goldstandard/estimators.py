@@ -19,15 +19,16 @@ Snapshot path (auction listings):
     Re-pricing one listing stays inside [x_(k-2), x_(k+2)]. Quantity is deliberately ignored: a
     single actor's volume must not buy a larger vote.
 
-    Second layer: the daily series passes through the same causal Hampel filter as the history
-    path, so a book captured wholesale by trolls (more than one listing) still cannot publish.
+    Second layer: robust_daily() below. In the thinnest servers a book can be one honest ask plus two
+    or three trolls - no single-book estimator can tell which is real, but the other servers can.
 
 History path (daily trade aggregates, no listing detail):
-    the daily volume-weighted average, passed through a CAUSAL Hampel filter: rejected when
-    its log-distance from the median of the previous HAMPEL_WINDOW observations exceeds
-    max(HAMPEL_K * scale, HAMPEL_FLOOR), scale = 1.4826 * median |daily log change| over the same
-    window. Causal (trailing) on purpose: a centred window
-    would let tomorrow's data rewrite today's decision, i.e. silently revise history.
+    the daily volume-weighted average.
+
+Both paths then pass robust_daily(): cross-server consensus where the item trades on enough
+servers, a causal Hampel check against the cell's own accepted history where it does not.
+Causal (trailing) on purpose: a centred window would let tomorrow's data rewrite today's decision,
+i.e. silently revise history.
 
 Neither path ever fills a gap: no listings / no trades -> no price (status thin / missing).
 """
@@ -46,6 +47,9 @@ HAMPEL_WINDOW = 14
 HAMPEL_K = 5.0
 HAMPEL_FLOOR = math.log(4.0)  # never reject a move smaller than 4x: real patch shocks must survive
 HAMPEL_MIN_HISTORY = 5
+CROSS_MIN_SERVERS = 3
+CROSS_LIMIT = math.log(4.0)  # a server more than 4x away from the cross-server median is not a market price
+UNTRADED_LIMIT = math.log(1.5)  # without a single trade that day, even a 1.5x deviation is not trusted
 
 
 def ask_rank(n: int) -> int:
@@ -122,24 +126,108 @@ def daily_from_snapshots(snaps: pl.DataFrame, expected_items: pl.DataFrame, day:
     return out.sort("server_id", "item_id")
 
 
-def hampel_daily(history: pl.DataFrame) -> pl.DataFrame:
-    """history rows (server_id, item_id, day, average, volume, order_count, ...) sorted by day ->
-    adds trailing-median diagnostics and status ok/rejected. Rows absent from history stay absent;
-    callers add 'missing' rows for days without trades."""
-    h = history.sort("server_id", "item_id", "day").with_columns(lp=pl.col("average").log())
-    grp = ["server_id", "item_id"]
-    # reference level: median of the previous HAMPEL_WINDOW observations (strictly the past)
-    # scale: median absolute day-over-day log change over the same past window (robust volatility)
-    h = h.with_columns(
-        ref=pl.col("lp").shift(1).rolling_median(HAMPEL_WINDOW, min_samples=HAMPEL_MIN_HISTORY).over(grp),
-        scale=pl.col("lp").diff().abs().shift(1).rolling_median(HAMPEL_WINDOW, min_samples=HAMPEL_MIN_HISTORY).over(grp)
-        * 1.4826,
+def robust_daily(today: pl.DataFrame, trailing: pl.DataFrame) -> pl.DataFrame:
+    """Day-level acceptance of raw daily prices (both worlds). Deterministic and causal.
+
+    today:    server_id, item_id, raw_price (null = nothing observed), ...
+    trailing: server_id, item_id, day, price  -- ACCEPTED prices of earlier days only
+
+    1. Cross-server consensus. The same good cannot trade 4x apart across servers for long
+       (hauling arbitrages it), so when >= CROSS_MIN_SERVERS servers *traded* the item today, a
+       price more than CROSS_LIMIT (log) from the median of those traded prices is rejected - and a
+       price that agrees with consensus is accepted, which is what prevents lock-out after a genuine
+       shift. Only traded observations vote: two cornered books cannot outvote one honest market.
+    2. Otherwise (item not traded widely enough today): causal Hampel against this cell's own
+       last HAMPEL_WINDOW accepted prices - rejected when the log distance from their median
+       exceeds max(HAMPEL_K * scale, HAMPEL_FLOOR), scale = 1.4826 * median |log change|. Using
+       accepted prices only means a captured stretch cannot drag its own reference along.
+
+    3. A price not corroborated by trades that day (no volume, or the day's traded VWAP more than
+       UNTRADED_LIMIT away from it) that also sits more than UNTRADED_LIMIT from its reference
+       (consensus, else own accepted history) is rejected. A cornered book - one actor buys every ask
+       and relists at 3x - shows exactly this: a high ask nobody pays. History rows (real EVE) are
+       trade averages, always corroborated, so this rule never fires there.
+
+    Adds: price (accepted, else null), rejected (bool), reject_reason, cross_ref, hampel_ref, robust_z.
+    """
+    t = today.with_columns(lp=pl.col("raw_price").log())
+    # consensus is formed only by prices that actually traded: a cornered book (asks, no buyers) gets no vote,
+    # so two cornered servers cannot outvote one honest market
+    traded = _corroborated(today)
+    cross = (
+        t.filter(pl.col("lp").is_not_null() & traded)
+        .group_by("item_id")
+        .agg(cross_lp=pl.col("lp").median(), cross_n=pl.len())
     )
-    h = h.with_columns(
-        dev=(pl.col("lp") - pl.col("ref")).abs(),
-        limit=pl.max_horizontal(pl.col("scale") * HAMPEL_K, pl.lit(HAMPEL_FLOOR)),
+    if trailing.is_empty():
+        hist = pl.DataFrame(schema={"server_id": pl.String, "item_id": pl.Int64, "hist": pl.List(pl.Float64)})
+    else:
+        hist = (
+            trailing.drop_nulls("price")
+            .sort("day")
+            .group_by("server_id", "item_id", maintain_order=True)
+            .agg(hist=pl.col("price").log().tail(HAMPEL_WINDOW))
+        )
+    j = (
+        t.join(cross, on="item_id", how="left")
+        .join(hist, on=["server_id", "item_id"], how="left")
+        .with_columns(
+            n_hist=pl.col("hist").list.len().fill_null(0),
+            ref=pl.col("hist").list.median(),
+            scale=pl.col("hist").list.diff(null_behavior="drop").list.eval(pl.element().abs()).list.median() * 1.4826,
+        )
     )
-    return h.with_columns(
-        status=pl.when(pl.col("dev") > pl.col("limit")).then(pl.lit("rejected")).otherwise(pl.lit("ok")),
-        robust_z=pl.col("dev") / pl.max_horizontal(pl.col("scale"), pl.lit(MAD_FLOOR)),
+    has_cross = pl.col("cross_n").fill_null(0) >= CROSS_MIN_SERVERS
+    cross_dev = (pl.col("lp") - pl.col("cross_lp")).abs()
+    time_dev = (pl.col("lp") - pl.col("ref")).abs()
+    limit = pl.max_horizontal(pl.col("scale").fill_null(0) * HAMPEL_K, pl.lit(HAMPEL_FLOOR))
+    cross_reject = has_cross & (cross_dev > CROSS_LIMIT)
+    time_reject = ~has_cross & (pl.col("n_hist") >= HAMPEL_MIN_HISTORY) & (time_dev > limit)
+    # a price nobody paid: no trades that day and far from its reference (consensus, else own history)
+    untraded = ~_corroborated(today)
+    ref_dev = (
+        pl.when(has_cross).then(cross_dev).otherwise(pl.when(pl.col("n_hist") >= HAMPEL_MIN_HISTORY).then(time_dev))
     )
+    untraded_reject = untraded & (ref_dev > UNTRADED_LIMIT)
+    rejected = pl.col("lp").is_not_null() & (cross_reject | time_reject | untraded_reject).fill_null(False)
+    return j.with_columns(
+        rejected=rejected,
+        reject_reason=pl.when(rejected & cross_reject.fill_null(False))
+        .then(pl.lit("cross_server"))
+        .when(rejected & time_reject.fill_null(False))
+        .then(pl.lit("temporal"))
+        .when(rejected)
+        .then(pl.lit("untraded_outlier")),
+        price=pl.when(rejected).then(None).otherwise(pl.col("raw_price")),
+        cross_ref=pl.col("cross_lp").exp(),
+        hampel_ref=pl.col("ref").exp(),
+        robust_z=pl.when(has_cross)
+        .then(cross_dev / CROSS_LIMIT)
+        .otherwise(time_dev / pl.max_horizontal(pl.col("scale"), pl.lit(MAD_FLOOR))),
+    ).drop("lp", "cross_lp", "hist", "ref", "scale", "n_hist", "cross_n")
+
+
+def _corroborated(today: pl.DataFrame) -> pl.Expr:
+    """Was this price actually paid? Volume > 0 AND the day's traded VWAP within UNTRADED_LIMIT of the
+    published (ask-based) price. A corner that ends mid-day has trades - at the honest price, not the
+    cornered one - so volume alone is not evidence. Frames without trade data count as corroborated."""
+    if "volume" not in today.columns:
+        return pl.lit(True)
+    expr = pl.col("volume").fill_null(0) > 0
+    if "trade_vwap" in today.columns:
+        expr = expr & ((pl.col("raw_price").log() - pl.col("trade_vwap").log()).abs() <= UNTRADED_LIMIT).fill_null(
+            False
+        )
+    return expr
+
+
+def robust_series(raw: pl.DataFrame) -> pl.DataFrame:
+    """Reference driver: apply robust_daily day by day over (server_id, item_id, day, raw_price),
+    feeding each day's accepted prices forward. The pipeline does exactly this, one partition at a time."""
+    out: list[pl.DataFrame] = []
+    accepted = pl.DataFrame(schema={"server_id": pl.String, "item_id": pl.Int64, "day": pl.Date, "price": pl.Float64})
+    for d in sorted(raw["day"].unique().to_list()):
+        today = robust_daily(raw.filter(pl.col("day") == d), accepted)
+        out.append(today)
+        accepted = pl.concat([accepted, today.select("server_id", "item_id", "day", "price")], how="vertical_relaxed")
+    return pl.concat(out, how="vertical_relaxed").sort("server_id", "item_id", "day")

@@ -188,7 +188,7 @@ def manipulation_events(daily: pl.DataFrame) -> pl.DataFrame:
 
     extreme_listing   a listing >= EXTREME_Z robust deviations from its book (snapshot worlds);
                       severity = max z; detail shows how far a naive mean would have been dragged.
-    hampel_reject     a daily trade average rejected by the causal Hampel filter (history worlds).
+    rejected_price    a daily price refused by robust_daily (cross-server consensus or causal Hampel).
     thin_market_spike a published price in a thin market (< THIN_LISTINGS listings or trades) that
                       jumps >= 75% from its trailing 14-day median: a cornered market or a real move -
                       flagged for review, not removed (it was not a single listing).
@@ -206,16 +206,21 @@ def manipulation_events(daily: pl.DataFrame) -> pl.DataFrame:
             pl.struct(n_extreme="n_extreme", robust_price="price", naive_mean="naive_mean").alias("detail"),
         )
         out.append(ext)
-    if "hampel_z" in daily.columns:
+    if "reject_reason" in daily.columns:
+        depth_col = pl.col("max_listings") if "max_listings" in daily.columns else pl.col("n_obs")
         rej = daily.filter(pl.col("status") == "rejected").select(
             "server_id",
             "item_id",
             "day",
-            pl.lit("hampel_reject").alias("kind"),
-            pl.col("hampel_z").alias("severity"),
-            pl.col("n_obs").cast(pl.Int32),
-            (pl.col("n_obs") < THIN_LISTINGS).alias("thin"),
-            pl.struct(rejected_average="raw_price", trailing_median="hampel_ref").alias("detail"),
+            pl.lit("rejected_price").alias("kind"),
+            pl.col("robust_z").alias("severity"),
+            depth_col.fill_null(0).cast(pl.Int32).alias("n_obs"),
+            (depth_col.fill_null(0) < THIN_LISTINGS).alias("thin"),
+            pl.struct(
+                rejected_price="raw_price",
+                reference=pl.coalesce("cross_ref", "hampel_ref"),
+                reason="reject_reason",
+            ).alias("detail"),
         )
         out.append(rej)
     depth = pl.col("max_listings") if "max_listings" in daily.columns else pl.col("n_obs")

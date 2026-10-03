@@ -157,15 +157,42 @@ def cmd_create_api_key(args: argparse.Namespace) -> None:
 def cmd_openapi(args: argparse.Namespace) -> None:
     """Write the OpenAPI spec generated from the FastAPI code (docs and frontend types derive from it)."""
     from goldstandard.api.app import app
+    from goldstandard.ops import render_api_markdown
 
-    text = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
-    if args.check:
-        current = Path(args.out).read_text(encoding="utf-8") if os.path.exists(args.out) else ""
-        if current != text:
-            sys.exit(f"{args.out} is out of date: run `goldstandard openapi`")
-        return
-    with open(args.out, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
+    spec = app.openapi()
+    outputs = {args.out: json.dumps(spec, indent=2, sort_keys=True) + "\n", args.md: render_api_markdown(spec)}
+    for path, text in outputs.items():
+        if args.check:
+            current = Path(path).read_text(encoding="utf-8") if os.path.exists(path) else ""
+            if current != text:
+                sys.exit(f"{path} is out of date: run `goldstandard openapi`")
+        else:
+            Path(path).write_text(text, encoding="utf-8", newline="\n")
+
+
+def cmd_explain(args: argparse.Namespace) -> None:
+    from goldstandard.ops import explain
+
+    dsn = os.environ.get("GS_OWNER_DATABASE_URL") or settings().database_url.get_secret_value()
+    print(json.dumps({"explained": explain(dsn, Path(args.out), args.world)}))
+
+
+def cmd_bench(args: argparse.Namespace) -> None:
+    from goldstandard.ops import bench
+
+    result = bench(settings(), args.days, args.servers, args.api)
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8", newline="\n")
+    print(json.dumps(result, indent=2))
+
+
+def cmd_accuracy(args: argparse.Namespace) -> None:
+    from goldstandard.ops import accuracy
+
+    result = accuracy(settings())
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(json.dumps(result, indent=2, default=str) + chr(10), encoding="utf-8", newline=chr(10))
+    print(json.dumps(result, indent=2, default=str))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -209,8 +236,25 @@ def main(argv: list[str] | None = None) -> None:
 
     o = sub.add_parser("openapi", help="export the OpenAPI spec generated from code")
     o.add_argument("--out", default="docs/api/openapi.json")
+    o.add_argument("--md", default="docs/API.md")
     o.add_argument("--check", action="store_true", help="fail if the committed spec differs from the code")
     o.set_defaults(fn=cmd_openapi)
+
+    e = sub.add_parser("explain", help="capture EXPLAIN ANALYZE of the hot queries into docs/explain/")
+    e.add_argument("--out", default="docs/explain")
+    e.add_argument("--world", default="synthetic")
+    e.set_defaults(fn=cmd_explain)
+
+    b = sub.add_parser("bench", help="measure stage throughput (and API latency with --api)")
+    b.add_argument("--days", type=int, default=60)
+    b.add_argument("--servers", type=int, default=4)
+    b.add_argument("--api", default=None, help="base URL of a running API, e.g. http://localhost:8000")
+    b.add_argument("--out", default="docs/perf/bench.json")
+    b.set_defaults(fn=cmd_bench)
+
+    acc = sub.add_parser("accuracy", help="score the synthetic world against the generator's ground truth")
+    acc.add_argument("--out", default="docs/perf/accuracy.json")
+    acc.set_defaults(fn=cmd_accuracy)
 
     args = parser.parse_args(argv)
     args.fn(args)

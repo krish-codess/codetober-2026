@@ -135,40 +135,102 @@ def test_daily_status_never_fabricates_a_price():
     assert prices[2] is None and prices[3] is None
 
 
-# --------------------------------------------------------------------------------------- Hampel (history)
-def _hist(prices: list[float], start: date = date(2026, 1, 1)) -> pl.DataFrame:
+# --------------------------------------------------------------------------------------- day-level acceptance
+def _raw(prices: dict[str, list[float | None]], start: date = date(2026, 1, 1)) -> pl.DataFrame:
+    rows = [(srv, 1, start + timedelta(days=k), p) for srv, ps in prices.items() for k, p in enumerate(ps)]
     return pl.DataFrame(
-        {
-            "server_id": "s",
-            "item_id": 1,
-            "day": [start + timedelta(days=i) for i in range(len(prices))],
-            "average": prices,
-            "volume": 100,
-            "order_count": 50,
-        }
-    )
+        rows,
+        schema={"server_id": pl.String, "item_id": pl.Int64, "day": pl.Date, "raw_price": pl.Float64},
+        orient="row",
+    ).with_columns(status=pl.lit("ok"))
 
 
-def test_hampel_rejects_the_real_001_isk_trade_day():
-    prices = [19900.0 * (1 + 0.01 * ((i * 7) % 5 - 2)) for i in range(30)]
-    prices[20] = 0.01  # Oxygen Fuel Block, Heimatar, 2026-08-22
-    out = estimators.hampel_daily(_hist(prices))
-    assert out["status"][20] == "rejected"
-    assert (out["status"] == "rejected").sum() == 1  # the rebound day is not rejected
+def _status(out: pl.DataFrame, server: str) -> list[bool]:
+    return out.filter(pl.col("server_id") == server).sort("day")["rejected"].to_list()
 
 
-def test_hampel_keeps_a_genuine_patch_crash():
-    prices = [100.0] * 20 + [38.0] * 20  # services -62% overnight (synthetic crash patch)
-    out = estimators.hampel_daily(_hist(prices))
-    assert (out["status"] == "rejected").sum() == 0
+def _flat(n: int, level: float = 19900.0) -> list[float]:
+    return [level * (1 + 0.01 * ((k * 7) % 5 - 2)) for k in range(n)]
+
+
+def test_cross_server_consensus_rejects_the_real_001_isk_trade_day():
+    heimatar = _flat(30)
+    heimatar[20] = 0.01  # Oxygen Fuel Block, Heimatar, 2026-08-22
+    out = estimators.robust_series(_raw({"heimatar": heimatar, "forge": _flat(30), "domain": _flat(30, 20500)}))
+    assert _status(out, "heimatar") == [k == 20 for k in range(30)]
+    assert out.filter((pl.col("server_id") == "heimatar") & pl.col("rejected"))["reject_reason"].to_list() == [
+        "cross_server"
+    ]
+
+
+def test_temporal_fallback_rejects_when_no_consensus_exists():
+    only = _flat(30)
+    only[20] = 0.01
+    out = estimators.robust_series(_raw({"lonely": only}))
+    assert _status(out, "lonely") == [k == 20 for k in range(30)]
+
+
+def test_a_genuine_patch_crash_survives_both_checks():
+    crash = [100.0] * 20 + [38.0] * 20  # services -62% overnight on every server
+    out = estimators.robust_series(_raw({"a": crash, "b": [x * 1.03 for x in crash], "c": [x * 0.97 for x in crash]}))
+    assert not out["rejected"].any()
+    alone = estimators.robust_series(_raw({"a": crash}))
+    assert not alone["rejected"].any()
+
+
+def test_a_captured_book_cannot_lock_out_honest_prices_later():
+    """Trolls capture a thin server's book for 3 weeks (1000x). Consensus rejects every captured day,
+    and because the trailing window only holds accepted prices, honest prices are accepted again after."""
+    thin = [10.0] * 10 + [10_000.0] * 21 + [10.5] * 10
+    out = estimators.robust_series(_raw({"thin": thin, "deep1": [10.0] * 41, "deep2": [10.2] * 41}))
+    assert _status(out, "thin") == [10 <= k < 31 for k in range(41)]
 
 
 @settings(max_examples=40, deadline=None)
 @given(
-    prices=st.lists(st.floats(min_value=0.01, max_value=1e6), min_size=10, max_size=60),
-    extra=st.lists(st.floats(min_value=0.01, max_value=1e6), min_size=1, max_size=20),
+    prices=st.lists(st.floats(min_value=0.01, max_value=1e6), min_size=10, max_size=40),
+    extra=st.lists(st.floats(min_value=0.01, max_value=1e6), min_size=1, max_size=15),
 )
-def test_hampel_is_causal_future_days_never_change_past_decisions(prices, extra):
-    before = estimators.hampel_daily(_hist(prices))
-    after = estimators.hampel_daily(_hist(prices + extra)).head(len(prices))
-    assert before["status"].to_list() == after["status"].to_list()
+def test_acceptance_is_causal_future_days_never_change_past_decisions(prices, extra):
+    before = estimators.robust_series(_raw({"s": prices}))
+    after = estimators.robust_series(_raw({"s": prices + extra})).head(len(prices))
+    assert before["rejected"].to_list() == after["rejected"].to_list()
+    assert before["price"].to_list() == after["price"].to_list()
+
+
+def test_an_untraded_corner_is_rejected_but_a_traded_premium_is_kept():
+    """A 3x ask sits inside the 4x consensus band. With no trades that day it is a corner (rejected);
+    with real volume it is a genuine local premium (kept)."""
+    base = {"a": [100.0] * 20, "b": [102.0] * 20, "c": [98.0] * 20}
+    raw = _raw({**base, "c": [98.0] * 15 + [300.0] * 5})
+    untraded = raw.with_columns(
+        volume=pl.when((pl.col("server_id") == "c") & (pl.col("raw_price") == 300.0)).then(0.0).otherwise(50.0)
+    )
+    out = estimators.robust_series(untraded)
+    assert _status(out, "c") == [k >= 15 for k in range(20)]
+    assert set(out.filter(pl.col("rejected"))["reject_reason"]) == {"untraded_outlier"}
+    traded = raw.with_columns(volume=pl.lit(50.0))
+    assert not estimators.robust_series(traded)["rejected"].any()
+
+
+def test_cornered_books_cannot_outvote_the_one_market_that_traded():
+    """Two of three servers cornered at ~3x with no buyers; only the honest one traded. Consensus must not
+    be the cornered price: the corners are rejected, the honest market is kept (a real fixture case)."""
+    honest, corner = [20000.0] * 20, [17500.0] * 15 + [56600.0] * 5
+    raw = _raw({"aurora": honest, "borealis": corner, "cinder": [18000.0] * 15 + [65800.0] * 5})
+    raw = raw.with_columns(volume=pl.when(pl.col("raw_price") > 50000).then(0.0).otherwise(40.0))
+    out = estimators.robust_series(raw)
+    assert _status(out, "aurora") == [False] * 20
+    assert _status(out, "borealis") == [k >= 15 for k in range(20)]
+    assert _status(out, "cinder") == [k >= 15 for k in range(20)]
+
+
+def test_a_corner_ending_mid_day_is_not_corroborated_by_the_honest_trades():
+    """Volume alone is not evidence: when a corner ends mid-day the day has trades, but at the honest
+    price. The 3x ask is rejected because the day's traded VWAP does not corroborate it."""
+    raw = _raw({"a": [100.0] * 20, "b": [100.0] * 15 + [300.0] * 5}).with_columns(
+        volume=pl.lit(40.0), trade_vwap=pl.lit(100.0)
+    )
+    out = estimators.robust_series(raw)
+    assert _status(out, "b") == [k >= 15 for k in range(20)]
+    assert _status(out, "a") == [False] * 20

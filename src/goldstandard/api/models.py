@@ -239,7 +239,7 @@ class ManipulationOut(BaseModel):
     item_id: int
     item_name: str
     day: date
-    kind: Literal["extreme_listing", "hampel_reject", "thin_market_spike"]
+    kind: Literal["extreme_listing", "rejected_price", "thin_market_spike"]
     severity: float
     n_obs: int
     thin: bool

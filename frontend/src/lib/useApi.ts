@@ -8,25 +8,27 @@ export interface ApiState<T> {
   reload: () => void
 }
 
-/** Fetch `path` (null = skip). Keeps the previous data while a new path loads so the UI never flashes empty. */
+export function toApiError(e: unknown): ApiError {
+  return e instanceof ApiError ? e : new ApiError(0, 'client_error', String(e), null)
+}
+
+/**
+ * Fetch `path` (null = skip). `loading` is derived (the settled request key differs from the wanted
+ * one) instead of being set inside the effect, and the previous data stays visible while a new
+ * path loads so the UI never flashes empty between selections.
+ */
 export function useApi<T>(path: string | null): ApiState<T> {
-  const [state, setState] = useState<{ data?: T; error?: ApiError; loading: boolean }>({ loading: path !== null })
   const [nonce, setNonce] = useState(0)
+  const [settled, setSettled] = useState<{ key: string; data?: T; error?: ApiError } | null>(null)
+  const key = path === null ? null : `${path}#${nonce}`
 
   useEffect(() => {
-    if (path === null) {
-      setState({ loading: false })
-      return
-    }
+    if (path === null) return
     let live = true
-    setState((s) => ({ data: s.data, loading: true }))
+    const k = `${path}#${nonce}`
     getJSON<T>(path, { force: nonce > 0 })
-      .then((data) => live && setState({ data, loading: false }))
-      .catch((error: unknown) => {
-        if (!live) return
-        const e = error instanceof ApiError ? error : new ApiError(0, 'client_error', String(error), null)
-        setState({ error: e, loading: false })
-      })
+      .then((data) => live && setSettled({ key: k, data }))
+      .catch((e: unknown) => live && setSettled((s) => ({ key: k, data: s?.data, error: toApiError(e) })))
     return () => {
       live = false
     }
@@ -37,5 +39,11 @@ export function useApi<T>(path: string | null): ApiState<T> {
     setNonce((n) => n + 1)
   }, [path])
 
-  return { data: state.data, error: state.error, loading: state.loading, reload }
+  const current = settled?.key === key
+  return {
+    data: path === null ? undefined : settled?.data,
+    error: current ? settled?.error : undefined,
+    loading: key !== null && !current,
+    reload,
+  }
 }

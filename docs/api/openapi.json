@@ -559,7 +559,7 @@
           "kind": {
             "enum": [
               "extreme_listing",
-              "hampel_reject",
+              "rejected_price",
               "thin_market_spike"
             ],
             "title": "Kind",
@@ -2003,7 +2003,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "pattern": "^(extreme_listing|hampel_reject|thin_market_spike)$",
+                  "pattern": "^(extreme_listing|rejected_price|thin_market_spike)$",
                   "type": "string"
                 },
                 {

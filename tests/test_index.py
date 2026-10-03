@@ -51,8 +51,9 @@ def reference_index(basket, prices, link, scope, division):
             g["WR"] += w * prices[(s, i)] / p0
     if not groups:
         return None, 0.0
-    num = sum(g["W"] * g["WR"] / g["O"] for g in groups.values() if g["O"] > 0)
-    den = sum(g["W"] for g in groups.values() if g["O"] > 0)
+    usable = [g for g in groups.values() if g["O"] >= 0.5 * g["W"] and g["O"] > 0]
+    num = sum(g["W"] * g["WR"] / g["O"] for g in usable)
+    den = sum(g["W"] for g in usable)
     cov = sum(g["O"] for g in groups.values()) / sum(g["W"] for g in groups.values())
     if den == 0 or cov < MIN_COVERAGE:
         return None, cov
@@ -120,6 +121,15 @@ def test_missing_item_is_imputed_from_its_own_group_not_given_a_price():
     out = index.index_values(b, _prices([("a", 1, 20.0)]), {("a", ALL): 100.0}, ["a"], ["x", "y"])
     row = out.filter((pl.col("scope") == "a") & (pl.col("division") == ALL)).row(0, named=True)
     assert row["coverage"] == 0.5 and row["status"] == "partial" and row["value"] == 200.0
+
+
+def test_a_small_remnant_does_not_speak_for_its_group():
+    # group x: the heavy item is missing, only a 10% remnant (unchanged) is observed -> group x drops out,
+    # its weight moves to group y (doubled) instead of the remnant claiming "x is flat"
+    b = _basket([("a", 1, "x", 0.45, 10.0), ("a", 2, "x", 0.05, 5.0), ("a", 3, "y", 0.5, 2.0)])
+    out = index.index_values(b, _prices([("a", 2, 5.0), ("a", 3, 4.0)]), {("a", ALL): 100.0}, ["a"], ["x", "y"])
+    row = out.filter((pl.col("scope") == "a") & (pl.col("division") == ALL)).row(0, named=True)
+    assert row["value"] == 200.0 and row["coverage"] == 0.55 and row["status"] == "partial"
 
 
 def test_low_coverage_publishes_no_value():

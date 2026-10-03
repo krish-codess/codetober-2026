@@ -260,6 +260,16 @@ def simulate_series(
         alive = (now - book.issued) < book.duration * 86400
         alive &= (rng.random(book.oid.size) > 0.015) | (book.tag == 1)  # trolls never cancel
         book.keep(alive)
+        # repricing: honest sellers whose ask drifted far from the market modify it (EVE players
+        # undercut constantly; a modified order keeps its order_id and remaining volume)
+        if book.oid.size:
+            drift_ = np.log(book.price / f) - np.where(book.buy, -0.05, 0.03)
+            stale = (book.tag == 0) & (np.abs(drift_) > 2.5 * disp) & (rng.random(book.oid.size) < 0.6)
+            if stale.any():
+                mu = np.where(book.buy[stale], -0.05, 0.03)
+                book.price[stale] = np.round(f * np.exp(mu + disp * rng.standard_normal(int(stale.sum()))), 2).clip(
+                    0.01
+                )
         # demand: buyers lift the cheapest asks they are willing to pay for
         sells = np.flatnonzero(~book.buy)
         qty = round(vol_step * rng.lognormal(0, 0.35))

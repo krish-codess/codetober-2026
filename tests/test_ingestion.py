@@ -235,3 +235,37 @@ def test_fill_inference_tracks_ground_truth_volume(small_world, known_items):
     corr = j.select(pl.corr(pl.col("qty").log1p(), pl.col("fill_qty").log1p()))[0, 0]
     assert 0.8 < ratio < 1.25, ratio
     assert corr > 0.9, corr
+
+
+def test_history_staging_reads_only_the_latest_fetch_and_keeps_aged_out_days(tmp_path):
+    from goldstandard.config import Settings
+    from goldstandard.pipeline import Pipeline
+
+    pipe = Pipeline(Settings(data_dir=tmp_path))
+    row = {"highest": 6.0, "lowest": 4.0, "volume": 10, "order_count": 2}
+
+    def fetch(day: date, rows: list[dict]) -> None:
+        t = datetime(day.year, day.month, day.day, 12, tzinfo=UTC)
+        pipe.store.put(
+            source="eve",
+            kind="market_history",
+            day=day,
+            key="eve-domain_34",
+            body=json.dumps(rows),
+            fetched_at=t,
+            observed_at=t,
+            meta={"server_id": "eve-domain", "type_id": 34},
+        )
+
+    fetch(
+        date(2026, 1, 3), [{"date": "2026-01-01", "average": 5.0, **row}, {"date": "2026-01-02", "average": 5.0, **row}]
+    )
+    assert pipe.stage_history() == [date(2026, 1, 1), date(2026, 1, 2)]
+    # a later fetch no longer contains Jan 1 (aged out) and revises Jan 2
+    fetch(
+        date(2026, 1, 4), [{"date": "2026-01-02", "average": 5.5, **row}, {"date": "2026-01-03", "average": 6.0, **row}]
+    )
+    assert pipe.stage_history() == [date(2026, 1, 2), date(2026, 1, 3)]
+    assert pipe.lake.read_day("history", "eve", date(2026, 1, 1))["average"].to_list() == [5.0]  # kept
+    assert pipe.lake.read_day("history", "eve", date(2026, 1, 2))["average"].to_list() == [5.5]  # latest wins
+    assert pipe.stage_history() == []  # nothing changed: nothing rewritten
