@@ -1,0 +1,109 @@
+# kind cluster, overlay deploy/k8s/overlays/local, 2026-10-03T18:13Z
+
+$ kubectl -n last-ticket get deploy
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+backend    2/2     2            2           2m45s
+frontend   1/1     1            1           2m43s
+kafka      1/1     1            1           2m40s
+postgres   1/1     1            1           2m39s
+redis      1/1     1            1           2m39s
+
+$ curl -s -o /dev/null -w '%{http_code}' http://localhost:13080/        # UI through the frontend service
+200
+
+$ curl -s http://localhost:13080/api/events                       # API through the same entry point
+{"items":[{"id":"00000000-0000-4000-8000-000000000001","name":"The Last Ticket: Live at the Arena","onSaleAt":"2026-10-03T18:14:19.756304Z","holdSeconds":120,"maxPerUser":4,"admissionRatePerSec":50,"serverTime":"2026-10-03T18:13:46.562708Z"}]}
+
+$ npx playwright test    # BASE_URL=http://localhost:13080, against 2 backend replicas
+  ✓  1 [phone] › e2e\journey.spec.ts:29:1 › lobby -> queue -> hold -> pay (11.3s)
+  ✓  2 [desktop] › e2e\journey.spec.ts:29:1 › lobby -> queue -> hold -> pay (14.3s)
+  ✓  4 [desktop] › e2e\journey.spec.ts:67:1 › abandoned checkout expires on screen and the tickets come back (10.7s)
+  ✓  3 [phone] › e2e\journey.spec.ts:67:1 › abandoned checkout expires on screen and the tickets come back (14.5s)
+  -  6 [phone] › e2e\journey.spec.ts:86:1 › the whole purchase works from the keyboard
+  ✓  7 [phone] › e2e\journey.spec.ts:112:1 › unknown event is an explained dead end, not a blank page (1.5s)
+  ✓  5 [desktop] › e2e\journey.spec.ts:86:1 › the whole purchase works from the keyboard (4.2s)
+  ✓  8 [desktop] › e2e\journey.spec.ts:112:1 › unknown event is an explained dead end, not a blank page (1.0s)
+  1 skipped
+  7 passed (36.3s)
+
+################ FIRST ATTEMPT: release + rollback with the original probes (1 s timeouts) ################
+# What went wrong here, kept on purpose: on this CPU-starved single-node cluster the rolling release did not finish in
+# 400 s, 11 of 60 availability probes failed during it, and after the rollback the liveness probe (1 s timeout) started
+# killing JVMs that were slow, not dead. Each restart replaced a warm JVM with a cold one and made it worse.
+# Fix: tolerant liveness/startup probes in deploy/k8s/base/backend.yaml. The second attempt below is after that fix.
+
+## Release v2 (rolling, maxUnavailable 0)
+$ kubectl set image deployment/backend backend=last-ticket-backend:v2 migrate=last-ticket-backend:v2
+deployment.apps/backend image updated
+error: timed out waiting for the condition
+Waiting for deployment "backend" rollout to finish: 1 out of 2 new replicas have been updated...
+availability probe: 49 x 200, 11 x other
+
+## Bad release (image that does not exist)
+$ kubectl set image deployment/backend backend=last-ticket-backend:broken migrate=last-ticket-backend:broken
+deployment.apps/backend image updated
+$ kubectl rollout status deployment/backend --timeout=45s
+error: timed out waiting for the condition
+backend-5d675459ff-pzbx9 1/1 Running
+backend-76c97784c-gsmfs 1/1 Running
+backend-c76584c67-9wsfl 0/1 Init:ErrImagePull
+availability probe: 10 x 200, 0 x other
+
+## Rollback
+$ kubectl rollout undo deployment/backend
+deployment.apps/backend rolled back
+E1004 00:02:05.461909   21092 reflector.go:166] "Unhandled Error" err="k8s.io/client-go/tools/watch/informerwatcher.go:146: Failed to watch *unstructured.Unstructured: deployments.apps \"backend\" is forbidden: User \"kubernetes-admin\" cannot watch resource \"deployments\" in API group \"apps\" in the namespace \"last-ticket\" - error from a previous attempt: net/http: TLS handshake timeout"
+error: timed out waiting for the condition
+Waiting for deployment "backend" rollout to finish: 1 old replicas are pending termination...
+$ kubectl get deployment backend -o jsonpath='{..containers[0].image}'
+last-ticket-backend:v2
+backend-5d675459ff-55fl7 0/1 Running
+backend-5d675459ff-pzbx9 0/1 Running
+backend-76c97784c-gsmfs 0/1 Running
+availability probe: 0 x 200, 10 x other
+
+$ kubectl rollout history deployment/backend
+deployment.apps/backend 
+REVISION  CHANGE-CAUSE
+1         <none>
+3         <none>
+4         <none>
+
+
+################ SECOND ATTEMPT, after making the probes tolerant (deploy/k8s/base/backend.yaml) ################
+
+$ kubectl -n last-ticket get pods -l app=backend
+backend-795db64746-2mwwz 1/1 Running restarts=0
+backend-795db64746-5n8w9 1/1 Running restarts=0
+availability probe (10 requests, 1/s): 10 x 200, 0 x other
+
+## Bad release (image that does not exist)
+$ kubectl set image deployment/backend backend=last-ticket-backend:broken migrate=last-ticket-backend:broken
+deployment.apps/backend image updated
+$ kubectl rollout status deployment/backend --timeout=40s
+error: timed out waiting for the condition
+backend-76d957f678-txd4n 0/1 Init:ErrImagePull restarts=0
+backend-795db64746-2mwwz 1/1 Running restarts=0
+backend-795db64746-5n8w9 1/1 Running restarts=0
+availability probe (20 requests, 1/s): 20 x 200, 0 x other
+
+## Rollback
+$ kubectl rollout undo deployment/backend
+deployment.apps/backend rolled back
+$ kubectl rollout status deployment/backend
+deployment "backend" successfully rolled out
+$ kubectl get deployment backend -o jsonpath='{..containers[0].image}'
+last-ticket-backend:v1
+backend-76d957f678-txd4n 0/1 Terminating restarts=0
+backend-795db64746-2mwwz 1/1 Running restarts=0
+backend-795db64746-5n8w9 1/1 Running restarts=0
+availability probe (20 requests, 1/s): 20 x 200, 0 x other
+
+$ kubectl rollout history deployment/backend
+REVISION  CHANGE-CAUSE
+1         <none>
+3         <none>
+4         <none>
+6         <none>
+7         <none>
+

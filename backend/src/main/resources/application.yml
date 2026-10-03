@@ -91,5 +91,6 @@ lastticket:
   admission-ttl-seconds: ${ADMISSION_TTL_SECONDS:600}
   sweeper-interval-ms: ${SWEEPER_INTERVAL_MS:1000}
   outbox-interval-ms: ${OUTBOX_INTERVAL_MS:200}
+  topic-replicas: ${TOPIC_REPLICAS:1}
   seed-demo: ${SEED_DEMO:false}
   seed-on-sale-in-seconds: ${SEED_ON_SALE_IN_SECONDS:60}

@@ -21,8 +21,8 @@ class KafkaConfig {
 
     /** 6 partitions keyed by inventory id (per-aggregate order); 7 days retention. */
     @Bean
-    NewTopic ticketingEvents() {
-        return TopicBuilder.name(Outbox.TOPIC).partitions(6).replicas(1)
+    NewTopic ticketingEvents(@org.springframework.beans.factory.annotation.Value("${lastticket.topic-replicas:1}") int replicas) {
+        return TopicBuilder.name(Outbox.TOPIC).partitions(6).replicas(replicas)
                 .config(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(Duration.ofDays(7).toMillis())).build();
     }
 

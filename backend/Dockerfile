@@ -9,12 +9,13 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -B package -DskipTests \
 
 # --- runtime: JRE only, non-root ---
 FROM eclipse-temurin:17-jre-alpine
-RUN addgroup -S app && adduser -S app -G app
+# Numeric uid so Kubernetes can verify runAsNonRoot.
+RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
 WORKDIR /app
 COPY --from=build /layers/dependencies/ ./
 COPY --from=build /layers/spring-boot-loader/ ./
 COPY --from=build /layers/snapshot-dependencies/ ./
 COPY --from=build /layers/application/ ./
-USER app
+USER 10001
 EXPOSE 8080 8081
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "last-ticket.jar"]

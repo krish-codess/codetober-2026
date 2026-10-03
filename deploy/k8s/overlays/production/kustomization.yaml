@@ -1,0 +1,15 @@
+# Production: managed Postgres, Kafka and Redis. Nothing stateful runs in the cluster.
+# Prerequisite (once, from a secrets manager, never from git): the two Secrets named in base/rest.yaml.
+# Deploy:   kubectl apply -k deploy/k8s/overlays/production
+# Release:  set newTag below to the image's git SHA and apply again.
+# Replace OWNER with your registry namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: last-ticket
+resources:
+  - ../../base
+images:
+  - { name: last-ticket-backend, newName: ghcr.io/OWNER/last-ticket-backend, newTag: "1.0.0" }
+  - { name: last-ticket-frontend, newName: ghcr.io/OWNER/last-ticket-frontend, newTag: "1.0.0" }
+replicas:
+  - { name: backend, count: 3 }
