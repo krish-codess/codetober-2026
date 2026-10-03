@@ -195,6 +195,57 @@ same good can't trade 4× apart for long when hauling arbitrages it.
 Both worlds use the same function (`estimators.robust_daily`). Each rule has a property or
 scenario test.
 
+### D-29 · Prices must be corroborated by trades, and only traded prices form consensus
+Found by scoring the simulated year against ground truth. After D-27 and D-28 the index still
+drifted about 10% for a week:
+* Fuel Blocks were cornered on **two of three** small servers at once, so the consensus median
+  *was* the cornered price.
+* When a corner ended mid-day, the day showed volume (honest supply returning) while three of four
+  snapshots still showed the 3× ask.
+
+**Fix:**
+* A price counts as traded only when the day's traded VWAP is within 1.5× of it.
+* Only such prices vote in consensus.
+* An uncorroborated price far from its reference is rejected.
+
+The fixture's index error went from mean 3.3% (worst day 10.5%) to 1.0% (worst day 7.1%). On the full
+simulated year it went from **2.0% to 0.32%**, and materially wrong published prices fell from 1.9% to
+0.09% (PERFORMANCE.md, "Accuracy").
+
+**Rejected:**
+* Tightening the 4× consensus limit: real regions legitimately differ by up to about 2–3× on thin
+  items (METHODOLOGY §2c).
+* Depth-weighted consensus: depth is exactly what a corner fakes.
+
+### D-30 · A small remnant does not impute for its group
+When a group's heavy item was missing, its remaining 15% of weight set the whole group's relative.
+A cornered Gila flipping between `ok` and `thin` swung the ships division ±45% from one day to the
+next. A group now needs at least 50% of its weight observed to impute for itself; otherwise
+imputation moves up a level.
+
+### D-31 · Freshness measures data arrival, not index lag
+The index legitimately stops for 3 days at each quarter boundary (the basket grace period, D-13).
+Readiness and the stale banner therefore use the newest day with published *prices*. The UI explains
+the index lag separately instead of reporting "stale" every quarter.
+
+### D-32 · PLEX no longer trades in the regional markets
+Profiling found 5 of 225 real series with no history at all: PLEX in all five regions, with empty order books too. In 2025 CCP moved
+PLEX trading into a separate *Global PLEX Market* region
+([announcement](https://www.eveonline.com/news/view/global-plex-market-and-friction-free-trade)),
+so the five regional markets this index tracks no longer carry it. Ingesting the global region as a sixth
+"server" would be a small change (one more `region_id`); it was not done because PLEX is an account
+service rather than an in-game good, and the services division is already represented by skill
+injectors and extractors.
+
+PLEX stays in the item universe, because the item is real:
+* it produces honest `missing` rows
+* it gets no basket weight
+* the API offers only items with published prices to the UI
+
+### D-33 · Reference basket worth 1B ISK
+The basket's absolute size doesn't matter for the index, but it does for labour-hours: at 1M ISK it
+cost "2 minutes" of ratting. 1B ISK, about a month of play, gives hours a reader can relate to.
+
 ---
 
 ## Deliberately not built

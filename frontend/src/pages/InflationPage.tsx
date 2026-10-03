@@ -17,7 +17,10 @@ function bucket(r: number): string {
 function rolling(values: { day: string; value: number | null }[], n: number) {
   return values.map((v, i) => {
     const win = values.slice(Math.max(0, i - n + 1), i + 1).map((x) => x.value).filter((x): x is number => x != null)
-    return { day: v.day, value: win.length === n ? win.reduce((a, b) => a + b, 0) / n : null }
+    // median, not mean: one corner buyout (real, but one-off) must not dominate the picture
+    if (win.length < n) return { day: v.day, value: null }
+    const s = [...win].sort((a, b) => a - b)
+    return { day: v.day, value: n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2 }
   })
 }
 
@@ -28,9 +31,9 @@ export function InflationPage({ world, server, setServer }: { world: World; serv
   const flows = useApi<Flows>(flowServer ? `/v1/money-flows${qs({ world: world.world_id, server: flowServer })}` : null)
   const cell = useMemo(() => {
     const m = new Map<string, number>()
-    for (const c of matrix.data?.cells ?? []) m.set(`${c.server_id}|${c.division_id}`, win >= 365 ? c.rate : c.annualized)
+    for (const c of matrix.data?.cells ?? []) m.set(`${c.server_id}|${c.division_id}`, c.rate) // the window's own change: annualising a 30-day move in a thin market gives absurd numbers
     return m
-  }, [matrix.data, win])
+  }, [matrix.data])
   const rows = [{ server_id: 'all', name: 'All servers' }, ...world.servers]
   const cols = [{ division_id: 'all', label: 'All' }, ...world.divisions]
   const flowPts = flows.data?.points ?? []
@@ -56,7 +59,7 @@ export function InflationPage({ world, server, setServer }: { world: World; serv
         <div className="table-wrap">
           <table className="heat">
             <caption>
-              Latest {win === 365 ? 'year-on-year change' : `${win}-day change, annualised`}. ▲ inflation, ▼ deflation;
+              Price change over the latest {win === 365 ? '12 months' : `${win} days`}. ▲ inflation, ▼ deflation;
               shading repeats the sign and size.
             </caption>
             <thead>
@@ -106,7 +109,7 @@ export function InflationPage({ world, server, setServer }: { world: World; serv
       {flows.data && flowPts.length > 0 && (
         <>
           <LineChart
-            label="Daily currency sinks and faucets (7-day average)"
+            label="Daily currency sinks and faucets (7-day median)"
             series={[
               { key: 'sinks', label: 'Sinks (taxes + fees)', values: rolling(flowPts.map((p) => ({ day: p.day, value: p.sinks })), 7) },
               ...(flowPts.some((p) => p.faucets != null)

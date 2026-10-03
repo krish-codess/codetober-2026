@@ -71,7 +71,7 @@ export function IntegrityPage({ world, server, setServer }: { world: World; serv
       {!state.loading && !state.error && items.length === 0 && <Empty>No events of this kind on this server.</Empty>}
       {items.length > 0 && (
         <div className="table-wrap">
-          <table>
+          <table className="cards">
             <caption className="sr-only">Manipulation and thin-market events</caption>
             <thead>
               <tr>
@@ -86,12 +86,12 @@ export function IntegrityPage({ world, server, setServer }: { world: World; serv
             <tbody>
               {items.map((e) => (
                 <tr key={`${e.day}-${e.item_id}-${e.kind}`}>
-                  <td>{day(e.day)}</td>
-                  <td>{e.item_name}</td>
-                  <td>{KINDS[e.kind] ?? e.kind}</td>
-                  <td>{e.severity.toFixed(1)}</td>
-                  <td>{e.thin ? <span className="badge partial">thin · {e.n_obs}</span> : `${e.n_obs} obs`}</td>
-                  <td className="detail">{describe(e)}</td>
+                  <td data-label="Day">{day(e.day)}</td>
+                  <td data-label="Item">{e.item_name}</td>
+                  <td data-label="Event">{KINDS[e.kind] ?? e.kind}</td>
+                  <td data-label="Severity">{e.severity.toFixed(1)}</td>
+                  <td data-label="Market">{e.thin ? <span className="badge partial">thin · {e.n_obs}</span> : `${e.n_obs} obs`}</td>
+                  <td data-label="Detail" className="detail">{describe(e)}</td>
                 </tr>
               ))}
             </tbody>

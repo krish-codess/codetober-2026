@@ -319,7 +319,10 @@ export interface components {
         Freshness: {
             /** Age Hours */
             age_hours: number | null;
-            /** Last Day */
+            /**
+             * Last Day
+             * @description newest day with published prices
+             */
             last_day: string | null;
             /**
              * Stale
@@ -553,7 +556,7 @@ export interface components {
         PowerPoint: {
             /**
              * Basket Cost
-             * @description cost that day of the basket that cost 1,000,000 at the index reference
+             * @description cost that day of the basket that cost 1,000,000,000 at the index reference
              */
             basket_cost: number | null;
             /**

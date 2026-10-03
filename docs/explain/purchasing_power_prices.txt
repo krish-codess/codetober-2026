@@ -1,0 +1,27 @@
+-- purchasing_power_prices
+-- GET /v1/purchasing-power: a handful of items on one server over a range. Served by the item_price_daily PK (server_id, item_id, day, vintage).
+-- table sizes: {"item_price_daily": 158972, "index_value": 32120, "patch_event": 249, "manipulation_event": 39296, "inflation_rate": 83836}
+-- captured 2026-10-03 09:17 UTC, PostgreSQL 160015
+
+SELECT day, item_id, price FROM item_price_current WHERE server_id = %(server_id)s AND item_id = ANY(%(items)s) AND day BETWEEN %(lo)s AND %(hi)s AND price IS NOT NULL
+
+Subquery Scan on item_price_current (actual time=2.422..2.781 rows=1098 loops=1)
+  Filter: (item_price_current.price IS NOT NULL)
+  Buffers: shared hit=450
+  ->  Unique (actual time=2.418..2.635 rows=1098 loops=1)
+        Buffers: shared hit=450
+        ->  Sort (actual time=2.416..2.466 rows=1098 loops=1)
+              Sort Key: item_price_daily.item_id, item_price_daily.day, item_price_daily.vintage DESC
+              Sort Method: quicksort  Memory: 126kB
+              Buffers: shared hit=450
+              ->  Bitmap Heap Scan on item_price_daily (actual time=0.429..1.271 rows=1098 loops=1)
+                    Recheck Cond: ((server_id = 'syn-aurora'::text) AND (item_id = ANY ('{34,35,587}'::smallint[])) AND (day >= '2025-10-02'::date) AND (day <= '2026-10-02'::date))
+                    Heap Blocks: exact=425
+                    Buffers: shared hit=447
+                    ->  Bitmap Index Scan on item_price_daily_pkey (actual time=0.353..0.353 rows=1098 loops=1)
+                          Index Cond: ((server_id = 'syn-aurora'::text) AND (item_id = ANY ('{34,35,587}'::smallint[])) AND (day >= '2025-10-02'::date) AND (day <= '2026-10-02'::date))
+                          Buffers: shared hit=22
+Planning:
+  Buffers: shared hit=71
+Planning Time: 0.787 ms
+Execution Time: 3.054 ms

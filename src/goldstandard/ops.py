@@ -56,11 +56,12 @@ QUERIES: dict[str, tuple[str, str]] = {
            ORDER BY day DESC, item_id DESC, kind DESC LIMIT 51""",
     ),
     "inflation_matrix": (
-        "GET /v1/inflation/matrix: latest value per series. Served by the inflation_rate PK "
-        "(series_id, window_days, day).",
-        """SELECT DISTINCT ON (r.series_id) r.series_id, r.day, r.annualized FROM inflation_rate r
-           JOIN index_series s USING (series_id) WHERE s.world_id = %(world)s AND r.window_days = 30
-           ORDER BY r.series_id, r.day DESC""",
+        "GET /v1/inflation/matrix: latest value per series - one backward probe of the inflation_rate PK "
+        "(series_id, window_days, day) per series via LATERAL ... LIMIT 1 (a DISTINCT ON version seq-scanned "
+        "and sorted every row: 18 ms vs well under 1 ms).",
+        """SELECT s.series_id, r.day, r.annualized FROM index_series s CROSS JOIN LATERAL (
+             SELECT day, annualized FROM inflation_rate WHERE series_id = s.series_id AND window_days = 30
+             ORDER BY day DESC LIMIT 1) r WHERE s.world_id = %(world)s ORDER BY s.series_id""",
     ),
     "publish_vintage_lookup": (
         "Pipeline publish: for each staged value, find the current vintage via LATERAL ... ORDER BY "

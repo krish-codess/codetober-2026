@@ -15,12 +15,10 @@ x-pipeline-env: &pipeline-env
   DAGSTER_HOME: /opt/dagster/home
   DAGSTER_PG_PASSWORD: ${GS_PIPELINE_PASSWORD}
 
+# One image for migrate/seed/dagster. Only `migrate` builds it; the others reuse the local tag.
 x-pipeline-image: &pipeline-image
   image: goldstandard-pipeline:${GS_IMAGE_TAG:-local}
-  build:
-    context: .
-    dockerfile: docker/python.Dockerfile
-    args: { EXTRAS: pipeline }
+  pull_policy: never
 
 services:
   postgres:
@@ -45,6 +43,10 @@ services:
   # one-shot: schema migrations (as the schema owner) + bootstrap admin API key (stored hashed)
   migrate:
     <<: *pipeline-image
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+      args: { EXTRAS: pipeline }
     command: ["sh", "-c", "goldstandard migrate up && goldstandard create-api-key --key-id admin"]
     environment:
       <<: *pipeline-env

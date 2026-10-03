@@ -143,3 +143,15 @@ was published when, is the one thing only the database backup holds.
   compiler, pip or uv.
 * **Rotate the admin key:** set a new `GS_BOOTSTRAP_ADMIN_KEY`, then run
   `docker compose run --rm migrate goldstandard create-api-key --key-id admin`.
+
+## Drills performed (2026-10-03, reference machine)
+
+| Drill | What was done | Result |
+|---|---|---|
+| Clean deploy | `docker compose down -v && GS_IMAGE_TAG=v3 docker compose up -d --build` | Migrations 1–4 applied and admin key bootstrapped. The seed restored the real EVE snapshot, generated 6.84 M simulated listings and processed both worlds; API healthy and frontend served |
+| Verify from outside | `curl` against :8000 and :8080; Playwright journey on desktop + phone | `/health/ready` reported `ok` with a real Postgres query (1 ms); 4/4 end-to-end tests passed |
+| Rollback | Deployed v2 (freshness fix), rolled back to v1, rolled forward to v2 with `--no-deps api frontend` | Readiness flipped `ok` → `degraded` → `ok`, confirming the old code was really serving; nginx served throughout |
+| Backup | `pg_dump -Fc` (6.8 MB) + raw store tar (186 MB, 8,187 payloads) | Done |
+| Restore | `pg_restore` into a fresh database | Identical row counts (32,120 index values, 158,972 prices, 1,569 basket cells, 7,902 manifest rows) and identical Σ index value. UPDATE on `index_value` is still rejected by the append-only trigger, even for the superuser |
+| Late data | Generator advanced from 10-10 to 10-16 (integration test `test_late_data_…`) | Only late days and their dependents were reprocessed; changes became vintage 2 with `reason=late_data`; `as_of` reproduces vintage 1 |
+| Crash mid-run | An interrupted seed (the host slept) was resumed with `goldstandard run` | Unfinished days were redone and finished days skipped; no duplicate vintages |

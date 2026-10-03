@@ -25,7 +25,7 @@ class ErrorResponse(BaseModel):
 
 
 class Freshness(BaseModel):
-    last_day: date | None
+    last_day: date | None = Field(description="newest day with published prices")
     age_hours: float | None
     stale: bool = Field(description="true when the newest published day is older than the freshness SLO")
 
@@ -217,7 +217,7 @@ class PowerPoint(BaseModel):
     wage_isk: float
     wage_goods: float | None
     basket_cost: float | None = Field(
-        description="cost that day of the basket that cost 1,000,000 at the index reference"
+        description="cost that day of the basket that cost 1,000,000,000 at the index reference"
     )
     hours_per_basket: float | None
     real_wage: float | None = Field(description="wage deflated by the server index (reference-period currency)")

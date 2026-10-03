@@ -563,6 +563,11 @@ fieldset {
   color: var(--warn-text);
 }
 
+.banner.info {
+  background: var(--flat);
+  color: var(--text);
+}
+
 .panel {
   margin: 16px 0;
   background: var(--surface);
@@ -671,6 +676,32 @@ footer {
   }
   h2 {
     font-size: 1.3rem;
+  }
+  /* long tables become stacked cards on phones instead of a sideways-scrolling grid */
+  table.cards thead {
+    position: absolute;
+    left: -9999px;
+  }
+  table.cards tr {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--surface);
+  }
+  table.cards td {
+    display: flex;
+    gap: 12px;
+    border: 0;
+    padding: 4px 10px;
+  }
+  table.cards td::before {
+    content: attr(data-label);
+    min-width: 6.5em;
+    color: var(--muted);
+  }
+  .detail {
+    max-width: none;
   }
 }
 

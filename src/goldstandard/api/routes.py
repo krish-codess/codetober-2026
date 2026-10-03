@@ -110,11 +110,10 @@ def _series(c: DictConn, world: str, server: str, division: str) -> SeriesRef:
 
 
 def _freshness(c: DictConn, world: str) -> Freshness:
-    row = c.execute(
-        """SELECT max(v.day) AS last_day FROM index_value_current v JOIN index_series s USING (series_id)
-           WHERE s.world_id = %s AND s.server_id IS NULL AND s.division_id IS NULL AND v.value IS NOT NULL""",
-        (world,),
-    ).fetchone()
+    # data freshness = newest day with published prices (is data arriving?); the index can lag it by design
+    # for the first days of a quarter, while the new basket waits out the late-data grace period
+    # newest processed partition: data_quality_daily is written last for every (world, day) - one PK probe
+    row = c.execute("SELECT max(day) AS last_day FROM data_quality_daily WHERE world_id = %s", (world,)).fetchone()
     last = row["last_day"] if row else None
     if last is None:
         return Freshness(last_day=None, age_hours=None, stale=True)
@@ -195,7 +194,15 @@ def worlds(c: Conn) -> list[WorldOut]:
                 activities=[ActivityOut(**r) for r in acts],
                 items=[
                     ItemOut(**r)
-                    for r in c.execute("SELECT item_id, name, division_id FROM item ORDER BY name").fetchall()
+                    # only items with a published price in this world: PLEX, for example, no longer trades
+                    # on regional markets, and offering it would only produce empty charts
+                    for r in c.execute(
+                        """SELECT i.item_id, i.name, i.division_id FROM item i WHERE EXISTS (
+                             SELECT 1 FROM item_price_daily p
+                             WHERE p.server_id = ANY(%s) AND p.item_id = i.item_id AND p.status = 'ok')
+                           ORDER BY i.name""",
+                        ([r["server_id"] for r in servers],),
+                    ).fetchall()
                 ],
                 first_day=first["d"] if first else None,
                 freshness=_freshness(c, wid),
@@ -297,11 +304,14 @@ def get_inflation_matrix(c: Conn, world: SlugQ, window: int = 30) -> InflationMa
         raise ApiError(400, "bad_window", "window must be one of 7, 30, 90, 365")
     _world(c, world)
     rows = c.execute(
-        """SELECT DISTINCT ON (r.series_id) coalesce(s.server_id, 'all') AS server_id,
-                               coalesce(s.division_id, 'all') AS division_id, r.day, r.rate, r.annualized
-                        FROM inflation_rate r JOIN index_series s USING (series_id)
-                        WHERE s.world_id = %s AND r.window_days = %s ORDER BY r.series_id, r.day DESC""",
-        (world, window),
+        # one backward PK probe per series (LATERAL ... LIMIT 1) instead of sorting every row of the window
+        """SELECT coalesce(s.server_id, 'all') AS server_id, coalesce(s.division_id, 'all') AS division_id,
+                  r.day, r.rate, r.annualized
+           FROM index_series s CROSS JOIN LATERAL (
+               SELECT day, rate, annualized FROM inflation_rate
+               WHERE series_id = s.series_id AND window_days = %s ORDER BY day DESC LIMIT 1) r
+           WHERE s.world_id = %s ORDER BY s.series_id""",
+        (window, world),
     ).fetchall()
     return InflationMatrix(world_id=world, window_days=window, cells=[InflationCell(**r) for r in rows])
 

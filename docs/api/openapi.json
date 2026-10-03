@@ -231,6 +231,7 @@
                 "type": "null"
               }
             ],
+            "description": "newest day with published prices",
             "title": "Last Day"
           },
           "stale": {
@@ -824,7 +825,7 @@
                 "type": "null"
               }
             ],
-            "description": "cost that day of the basket that cost 1,000,000 at the index reference",
+            "description": "cost that day of the basket that cost 1,000,000,000 at the index reference",
             "title": "Basket Cost"
           },
           "day": {

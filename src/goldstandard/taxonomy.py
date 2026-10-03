@@ -4,7 +4,7 @@ polars/numpy, so nothing it imports may pull them in - see tests/test_api_image.
 from __future__ import annotations
 
 METHOD_VERSION = "gs-1.0"
-BASKET_VALUE = 1_000_000.0  # currency units the base basket costs at base prices (labour-hour calculator)
+BASKET_VALUE = 1_000_000_000.0  # the reference basket costs 1B ISK at base prices (roughly a month of play)
 
 # Keywords used to tag patch notes with the CPI divisions they plausibly affect (see analytics.attribute).
 DIVISION_KEYWORDS: dict[str, list[str]] = {

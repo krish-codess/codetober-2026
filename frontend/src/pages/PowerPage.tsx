@@ -6,7 +6,7 @@ import type { PurchasingPower, World } from '../lib/api'
 import { arrow, compact, day, hours, pct } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
-const DEFAULT_ITEMS = [34, 587, 44992]
+const DEFAULT_ITEMS = [34, 587, 2048]
 const MAX_ITEMS = 5
 
 export function PowerPage({ world, server, setServer }: { world: World; server: string; setServer: (s: string) => void }) {
@@ -108,7 +108,7 @@ export function PowerPage({ world, server, setServer }: { world: World; server: 
               .
             </p>
             <p>
-              The reference basket costs <strong>{hours(last.hours_per_basket)}</strong> of this work, against{' '}
+              The reference basket (worth 1B ISK at reference prices) costs <strong>{hours(last.hours_per_basket)}</strong> of this work, against{' '}
               {hours(first.hours_per_basket)} on {day(first.day)}: purchasing power {arrow(powerChange)}{' '}
               <strong>{pct(powerChange)}</strong>.
             </p>

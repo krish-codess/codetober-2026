@@ -321,7 +321,7 @@ Worlds, servers, divisions, activities
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `last_day` | string (date) or null | yes |  |
+| `last_day` | string (date) or null | yes | newest day with published prices |
 | `age_hours` | number or null | yes |  |
 | `stale` | boolean | yes | true when the newest published day is older than the freshness SLO |
 
@@ -474,7 +474,7 @@ Worlds, servers, divisions, activities
 | `wage` | number or null | yes | currency earned per hour (nominal bounty + yields at that day's prices) |
 | `wage_isk` | number | yes |  |
 | `wage_goods` | number or null | yes |  |
-| `basket_cost` | number or null | yes | cost that day of the basket that cost 1,000,000 at the index reference |
+| `basket_cost` | number or null | yes | cost that day of the basket that cost 1,000,000,000 at the index reference |
 | `hours_per_basket` | number or null | yes |  |
 | `real_wage` | number or null | yes | wage deflated by the server index (reference-period currency) |
 | `items` | array of `ItemPower` | yes |  |

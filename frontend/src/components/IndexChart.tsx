@@ -16,6 +16,13 @@ export interface IndexChartProps {
 
 const M = { top: 28, right: 16, bottom: 46, left: 52 }
 const toDate = (d: string) => new Date(d + 'T00:00:00Z')
+/** "Version S1.40 - Open Market · 2026-06-18.1" -> "S1.40 Open Market"; "Catalyst: Expansion Notes" -> "Catalyst" */
+function patchLabel(p: Patch): string {
+  const named = p.title.match(/Version\s+(\S+)\s+-\s+([^·]+)/)
+  const label = named ? `${named[1]} ${named[2].trim()}` : p.title.split(':')[0].split('·')[0].trim()
+  return label.length > 24 ? `${label.slice(0, 23)}…` : label
+}
+
 const EPOCH = new Date(0) // fixed fallback domain for an empty series (no wall-clock read during render)
 
 /**
@@ -164,7 +171,7 @@ export function IndexChart({ points, patches, shocks, label, height = 360, focus
                 </rect>
                 {p.is_major && (
                   <text x={px + 3} y={-14} className="patch-label">
-                    {p.version ? `v${p.version}` : p.title.slice(0, 18)}
+                    {patchLabel(p)}
                   </text>
                 )}
               </g>

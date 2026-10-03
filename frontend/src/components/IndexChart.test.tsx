@@ -54,6 +54,6 @@ describe('IndexChart', () => {
     const shock = container.querySelector('path.shock')
     expect(shock).toHaveClass('down', 'persistent')
     expect(shock?.querySelector('title')).toHaveTextContent('Down shock')
-    expect(container.querySelector('.patch.major .patch-label')).toHaveTextContent('v1.1')
+    expect(container.querySelector('.patch.major .patch-label')).toHaveTextContent('Open Market')
   })
 })

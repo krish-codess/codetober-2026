@@ -1,0 +1,30 @@
+-- publish_vintage_lookup
+-- Pipeline publish: for each staged value, find the current vintage via LATERAL ... ORDER BY vintage DESC LIMIT 1 - one PK probe per row instead of materialising item_price_current.
+-- table sizes: {"item_price_daily": 158972, "index_value": 32120, "patch_event": 249, "manipulation_event": 39296, "inflation_rate": 83836}
+-- captured 2026-10-03 09:17 UTC, PostgreSQL 160015
+
+EXPLAIN_IN_TXN CREATE TEMP TABLE stage_price ON COMMIT DROP AS SELECT server_id, item_id, day, price FROM item_price_current WHERE day = %(hi)s; SELECT count(*) FROM stage_price s LEFT JOIN LATERAL ( SELECT p.vintage FROM item_price_daily p WHERE p.server_id = s.server_id AND p.item_id = s.item_id AND p.day = s.day ORDER BY p.vintage DESC LIMIT 1) c ON true
+
+Aggregate (actual time=2.284..2.286 rows=1 loops=1)
+  Buffers: shared hit=529, local hit=2
+  ->  Nested Loop Left Join (actual time=0.078..2.251 rows=176 loops=1)
+        Buffers: shared hit=529, local hit=2
+        ->  Seq Scan on stage_price s (actual time=0.010..0.035 rows=176 loops=1)
+              Buffers: local hit=2
+        ->  Memoize (actual time=0.012..0.012 rows=1 loops=176)
+              Cache Key: s.server_id, s.item_id, s.day
+              Cache Mode: binary
+              Hits: 0  Misses: 176  Evictions: 0  Overflows: 0  Memory Usage: 22kB
+              Buffers: shared hit=529
+              ->  Subquery Scan on c (actual time=0.011..0.011 rows=1 loops=176)
+                    Buffers: shared hit=529
+                    ->  Limit (actual time=0.010..0.010 rows=1 loops=176)
+                          Buffers: shared hit=529
+                          ->  Index Only Scan Backward using item_price_daily_pkey on item_price_daily p (actual time=0.010..0.010 rows=1 loops=176)
+                                Index Cond: ((server_id = s.server_id) AND (item_id = s.item_id) AND (day = s.day))
+                                Heap Fetches: 0
+                                Buffers: shared hit=529
+Planning:
+  Buffers: shared hit=11
+Planning Time: 0.286 ms
+Execution Time: 2.449 ms

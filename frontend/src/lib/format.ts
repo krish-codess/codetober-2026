@@ -9,8 +9,13 @@ const UNITS: [number, string][] = [
 export function compact(x: number | null | undefined, digits = 3): string {
   if (x === null || x === undefined || !Number.isFinite(x)) return '—'
   const a = Math.abs(x)
-  for (const [v, u] of UNITS) if (a >= v) return `${(x / v).toPrecision(digits)}${u}`
-  return a >= 1 ? x.toPrecision(Math.max(digits, Math.ceil(Math.log10(a + 1)))) : x.toPrecision(digits)
+  for (const [v, u] of UNITS) {
+    if (a >= v) {
+      const n = x / v
+      return `${Math.abs(n) >= 100 ? n.toFixed(0) : n.toPrecision(digits)}${u}`
+    }
+  }
+  return a >= 100 ? x.toFixed(0) : x.toPrecision(digits)
 }
 
 export function pct(x: number | null | undefined, digits = 1): string {
@@ -27,6 +32,8 @@ export function arrow(x: number | null | undefined): string {
 
 export function hours(h: number | null | undefined): string {
   if (h === null || h === undefined || !Number.isFinite(h)) return '—'
+  if (h * 3600 < 1) return '< 1 s'
+  if (h * 60 < 1) return `${Math.round(h * 3600)} s`
   if (h < 1) return `${Math.round(h * 60)} min`
   return `${h.toFixed(h < 10 ? 1 : 0)} h`
 }

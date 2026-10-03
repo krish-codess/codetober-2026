@@ -16,9 +16,17 @@ attributed to a specific change. It runs on **real EVE Online market data** (ESI
 
 ## What it shows
 
-* **The real EVE economy, Sep 2025 – Oct 2026:** <!--EVE_SUMMARY-->
+* **The real EVE economy, Oct 2025 – Sep 2026:** consumer prices **fell 17%** (CPI 100 → 82.9),
+  led by minerals (−34%), fuel and ice products (−24%) and moon and planetary materials (−22%).
+  Account services and consumables were flat. No single real patch moved the headline index
+  much: the largest 7-day patch impact has |z| = 3.7. 346 real daily prices (205 of them in thin
+  markets) were rejected, including 0.01 ISK trade days.
 * **The day a patch crashed the market:** in the simulated shard, patch *S1.40 "Open Market"*
-  flooded PLEX supply. <!--CRASH_SUMMARY-->
+  flooded the market with account services. The next day the services index fell **44%** (robust
+  z = −155, fully persistent), ships fell 8% and the headline index fell 16%, and attribution named
+  S1.40 as the most likely cause of all three. The ore-yield, fuel and crash patches show up as the
+  largest 7-day patch impacts (z −16, +8.8, −30); every no-effect bug-fix patch scores |z| < 1.0, and
+  a shock injected *without* a patch is reported as **unattributed**.
 * **Purchasing power in labour-hours:** a bounty-paid hour of ratting loses purchasing power to
   inflation, while a goods-paid hour of mining keeps it.
 * **Manipulation, made visible:** the real Jita order book contains a Tritanium ask of 300,100,000
@@ -150,7 +158,17 @@ cd frontend && npm run typecheck && npm run lint && npm test # component + contr
 E2E_BASE_URL=http://localhost:8080 npx playwright test       # primary journey, desktop + phone
 ```
 
-<!--TEST_SUMMARY-->
+Current suite: **97 Python tests** (70% line coverage; the uncovered code is mainly Dagster wiring, the CLI and live-network ESI paths, which the stack deployment exercises) and **61 frontend tests**, plus 4 end-to-end runs. Coverage:
+* property-based guarantees of the estimators, checked with Hypothesis
+* differential tests against a naive reference implementation and against the simulator's ground truth
+* integration tests on a real PostgreSQL: append-only triggers, role privileges, reproducibility
+  from raw, late data
+* API contract tests
+* failure injection for ESI
+* a WCAG contrast check of both themes
+
+Measured accuracy on the simulated year: index error **0.32%** mean against the true-price index,
+and 0 published prices more than 4× off (PERFORMANCE.md).
 
 ## Documentation
 

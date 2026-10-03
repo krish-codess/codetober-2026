@@ -46,6 +46,9 @@ Most extreme listings relative to their book's median:
 | eve-domain | Damage Control II | 83 | 3.5e+05 | 4.198e+05 | 6.661e+08 | 1587 |
 | eve-the-forge | Megacyte | 78 | 2232 | 2618 | 2.86e+06 | 1093 |
 
+**Why 5 series have no history:** all five are PLEX. CCP moved PLEX trading off the regional order
+books to a global PLEX market, so the regional ESI endpoints have no PLEX trades (DECISIONS D-32).
+
 ## Assumptions this data violates
 
 1. *Every item trades every day* - false; thin series miss up to half the days.

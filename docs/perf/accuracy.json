@@ -1,20 +1,20 @@
 {
   "index_vs_truth": {
     "days": 365,
-    "mean_abs_log_error": 0.0199,
-    "p95_abs_log_error": 0.0398,
-    "max_abs_log_error": 0.0547,
-    "final_level_published": 102.92,
-    "final_level_truth": 97.74
+    "mean_abs_log_error": 0.0032,
+    "p95_abs_log_error": 0.0079,
+    "max_abs_log_error": 0.0267,
+    "final_level_published": 99.63,
+    "final_level_truth": 97.72
   },
   "manipulation_recall": {
     "absurd_listing": {
-      "injected": 615,
+      "injected": 616,
       "caught_same_day": 596,
       "caught_by": [
         "extreme_listing"
       ],
-      "recall": 0.969
+      "recall": 0.968
     },
     "bait_listing": {
       "injected": 569,
@@ -26,25 +26,25 @@
     },
     "corner": {
       "injected": 528,
-      "caught_same_day": 165,
+      "caught_same_day": 201,
       "caught_by": [
         "thin_market_spike",
         "rejected_price"
       ],
-      "recall": 0.312
+      "recall": 0.381
     }
   },
   "distorted_published_prices": {
-    "count": 1264,
-    "share_of_published": 0.01872,
-    "flagged_as_thin_market_spike": 1090,
-    "flagged_share": 0.862
+    "count": 59,
+    "share_of_published": 0.00089,
+    "flagged_as_thin_market_spike": 39,
+    "flagged_share": 0.661
   },
   "published_prices_vs_fair": {
-    "prices": 67520,
-    "median_abs_log_error": 0.0583,
-    "share_beyond_2x": 0.01798,
-    "share_beyond_4x": 0.0007
+    "prices": 66273,
+    "median_abs_log_error": 0.057,
+    "share_beyond_2x": 0.00068,
+    "share_beyond_4x": 0.0
   },
   "fill_inference": {
     "cells": 68019,

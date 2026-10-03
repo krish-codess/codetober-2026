@@ -137,6 +137,13 @@ export function IndexPage({ world, server, setServer }: { world: World; server: 
       {points.length > 0 && (
         <>
           <PartialBanner {...counts} />
+          {lastP && last && lastP.day < last && (
+            <div className="banner info" role="status">
+              <span aria-hidden="true">ℹ</span> Prices are published through {day(last)}; the index stops at{' '}
+              {day(lastP.day)} because a new quarter's basket is frozen only after a 3-day grace period for late
+              data. Those days will appear once it is.
+            </div>
+          )}
           <div className="stats" role="group" aria-label="Summary">
             <div className="stat">
               <span className="stat-label">Index level</span>
@@ -158,8 +165,9 @@ export function IndexPage({ world, server, setServer }: { world: World; server: 
             <div className="stat">
               <span className="stat-label">Year-on-year</span>
               <span className="stat-value">
-                {arrow(latest365?.rate)} {pct(latest365?.rate)}
+                {latest365 ? `${arrow(latest365.rate)} ${pct(latest365.rate)}` : '—'}
               </span>
+              {!latest365 && <span className="muted">needs 12 months of index history</span>}
             </div>
           </div>
           <IndexChart

@@ -47,11 +47,16 @@ ESI and stay absent here (status `missing`).
 
 A raw daily price is accepted or rejected by `robust_daily`:
 
-1. **Cross-server consensus.** If at least 3 servers observed the item that day, a price more than
-   4× away from the cross-server median is rejected. A price within 4× is accepted even if its own
-   history disagrees. This prevents lock-out after a genuine regime change.
-   The real 0.01 ISK trade days in Heimatar are rejected here
+1. **Cross-server consensus among prices that traded.** If at least 3 servers *traded* the item
+   that day, a price more than 4× away from the median of those traded prices is rejected. A price
+   within 4× is accepted even if its own history disagrees, which prevents lock-out after a genuine
+   regime change. Only corroborated prices (rule 3) vote, so two cornered books can't outvote one
+   honest market [`test_cornered_books_cannot_outvote_the_one_market_that_traded`]. The real
+   0.01 ISK trade days in Heimatar are rejected here
    [`test_cross_server_consensus_rejects_the_real_001_isk_trade_day`].
+   * The 4× limit is empirical. Across real EVE regions the median deviation from consensus is 4.4%
+     and the 99th percentile is 2.2×. Only 0.41% of rows lie beyond 4×, and those are the 0.01 ISK
+     contamination.
 2. **Otherwise, causal Hampel.** The price is compared with the median of the cell's last 14
    *accepted* prices. It is rejected if the log-distance exceeds `max(5 × scale, ln 4)`, where
    `scale = 1.4826 × median |daily log change|` over the same window.
@@ -61,6 +66,16 @@ A raw daily price is accepted or rejected by `robust_daily`:
      [`test_a_genuine_patch_crash_survives_both_checks`].
    * The check is **causal**: it only reads the past, so adding future days never changes a past
      decision [`test_acceptance_is_causal_future_days_never_change_past_decisions`].
+
+3. **Trade corroboration.** A price is *corroborated* when the day had trades and their
+   volume-weighted price is within 1.5× of it. For snapshots that's the inferred fills; for history
+   it's the trade average itself, so history prices are always corroborated. An uncorroborated price
+   that is also more than 1.5× from its reference (consensus, otherwise the cell's own accepted
+   history) is rejected as `untraded_outlier`: an ask nobody pays is not a price.
+   * This removes a cornered market, where one actor buys every ask and relists at 3×, inside the
+     4× consensus band. It works even when the corner ends mid-day and the day's trades happen at
+     the honest price [`test_an_untraded_corner_is_rejected_but_a_traded_premium_is_kept`,
+     `test_a_corner_ending_mid_day_is_not_corroborated_by_the_honest_trades`].
 
 A rejected price is not published (status `rejected`) and is listed as a `rejected_price`
 manipulation event, together with the rule that fired.
@@ -78,10 +93,10 @@ database trigger enforcing it.
 | Expenditure | Σ over reference days of price × traded volume. Volume is inferred fills for snapshots, ESI volume for history |
 | Weight | expenditure share within the server, capped at 20% per item with excess redistributed pro rata, then × the server's share of world expenditure |
 | Base price p₀ | median daily price over the **link window**: the last 7 days of the reference period |
-| Fixed quantity | q = w × 1,000,000 / p₀, so the basket cost 1,000,000 ISK at base prices |
+| Fixed quantity | q = w × 1,000,000,000 / p₀, so the basket cost 1B ISK at base prices (about a month of play) |
 
-The cap means no single item can dominate a server's index. Before capping, PLEX and skill
-injectors would carry most of the EVE weight. [`test_weight_cap_properties`,
+The cap means no single item can dominate a server's index. Before capping, skill injectors
+would carry most of the EVE weight. [`test_weight_cap_properties`,
 `test_basket_eligibility_weights_and_base_price`, `test_basket_weights_sum_to_one_and_respect_the_cap`]
 
 ## 4. The index
@@ -99,7 +114,10 @@ Groups `g = (server, division)` within S; `W_g` is the group's full basket weigh
 
 * **Missing prices are imputed from their own group's observed items.** This is the standard CPI
   cell-relative method. The missing item is *not* given a price.
-  `coverage = observed weight / total weight`.
+  * A group imputes for itself only if **at least half of its weight was observed**. Otherwise the
+    whole group drops out, and the series' other groups carry its weight. A 15% remnant can't speak
+    for a group whose heavy item is missing [`test_a_small_remnant_does_not_speak_for_its_group`].
+  * `coverage = observed weight / total weight`.
 * `coverage ≥ 0.9` → `ok`; `0.5 ≤ coverage < 0.9` → `partial`, published and flagged;
   `coverage < 0.5` → `insufficient`, **no value** (a gap in the chart, never interpolated).
   [`test_missing_item_is_imputed_from_its_own_group_not_given_a_price`,
@@ -138,7 +156,7 @@ a bounty patch is a new rate, plus a list of goods produced per hour. For a serv
 wage_t        = isk_per_hour(t) + Σ yield_i × p_i,t      (null if any yield good has no price that day)
 units/hour    = wage_t / p_item,t
 hours/unit    = p_item,t / wage_t
-basket cost_t = 1,000,000 × I_t / 100                    (the basket that cost 1,000,000 at reference)
+basket cost_t = 1,000,000,000 × I_t / 100                (the basket that cost 1B ISK at reference)
 hours/basket  = basket cost_t / wage_t
 real wage_t   = wage_t × 100 / I_t
 ```
