@@ -1,0 +1,95 @@
+spring:
+  application:
+    name: last-ticket
+  threads:
+    virtual:
+      enabled: false
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/lastticket}
+    username: ${DB_APP_USER:lastticket_app}
+    password: ${DB_APP_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      # Fail fast instead of queueing forever when the pool is saturated: the caller gets a 503 it can retry.
+      connection-timeout: 2000
+  flyway:
+    # Migrations run as the owner role; the app itself only ever holds the DML-only role.
+    user: ${DB_OWNER_USER:lastticket_owner}
+    password: ${DB_OWNER_PASSWORD}
+    placeholders:
+      app_user: ${DB_APP_USER:lastticket_app}
+      app_password: ${DB_APP_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 500ms
+      connect-timeout: 500ms
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        max.block.ms: 3000
+    consumer:
+      group-id: last-ticket-stats
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+  jackson:
+    default-property-inclusion: non_null
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: 8080
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: ${HTTP_THREADS:200}
+
+management:
+  server:
+    port: 8081 # not routed publicly; probes + Prometheus scrape only
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        # Postgres is the only hard dependency: Redis/Kafka outages degrade features but must not pull pods out of rotation.
+        readiness:
+          include: readinessState,db
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        lastticket.reserve: true
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:ecs}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+
+lastticket:
+  jwt-secret: ${JWT_SECRET}
+  admin-api-key: ${ADMIN_API_KEY}
+  admission-ttl-seconds: ${ADMISSION_TTL_SECONDS:600}
+  sweeper-interval-ms: ${SWEEPER_INTERVAL_MS:1000}
+  outbox-interval-ms: ${OUTBOX_INTERVAL_MS:200}
+  seed-demo: ${SEED_DEMO:false}
+  seed-on-sale-in-seconds: ${SEED_ON_SALE_IN_SECONDS:60}
