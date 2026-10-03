@@ -28,13 +28,17 @@ class Property:
     source: str = "declared"  # or "discovered"
 
 
-def canon(rows: list[dict[str, Any]]) -> list[str]:
-    """Order-independent form of a result set, for multiset comparison."""
-    return sorted(repr(sorted(r.items())) for r in rows)
+def canon(rows: list[dict[str, Any]], digits: int | None = None) -> list[str]:
+    """Order-independent form of a result set, for multiset comparison. With `digits`,
+    floats are compared to that many decimals instead of bit for bit."""
+    def value(v: Any) -> Any:
+        return f"{v:.{digits}f}" if digits is not None and isinstance(v, float) else v
+
+    return sorted(repr(sorted((k, value(v)) for k, v in r.items())) for r in rows)
 
 
-def same_output(a: Dataset, b: Dataset) -> bool:
-    return all(canon(a[k]) == canon(b[k]) for k in a)
+def same_output(a: Dataset, b: Dataset, digits: int | None = None) -> bool:
+    return all(canon(a[k], digits) == canon(b[k], digits) for k in a)
 
 
 def close(a: float, b: float) -> bool:

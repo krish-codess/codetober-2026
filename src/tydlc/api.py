@@ -7,7 +7,8 @@ import logging
 import os
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -220,7 +221,18 @@ def execute_run(run: dict[str, Any]) -> None:
 
 def create_app() -> FastAPI:
     setup_logging()
-    app = FastAPI(title="tydlc", version="0.1.0",
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:  # a database that is down at boot must not stop the API from starting
+            conn = store.connect(_dsn(), attempts=1)
+            store.fail_abandoned_runs(conn)
+            conn.close()
+        except psycopg.Error as exc:
+            log.warning("startup cleanup skipped", extra={"error": str(exc).strip()})
+        yield
+
+    app = FastAPI(title="tydlc", version="0.1.0", lifespan=lifespan,
                   description="Property-based testing for data pipelines: runs, invariant "
                               "catalog, minimal failing datasets.")
 

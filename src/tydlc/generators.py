@@ -39,7 +39,10 @@ def _column(col: Column) -> st.SearchStrategy[Any]:
         # An index into the parent rows, resolved in `datasets`. Drawing the parent key
         # directly would need a fresh sampled_from per example, and building strategies
         # inside the draw made generation ~6x slower (docs/performance.md).
-        base: st.SearchStrategy[Any] = st.integers(0, MAX_ROWS - 1)
+        # Half of all references go to the first parent: a hot key. Fan-in (many
+        # payments on one order) is where joins and aggregates go wrong, and a uniform
+        # draw almost never produces three children of the same parent.
+        base: st.SearchStrategy[Any] = st.just(0) | st.integers(0, MAX_ROWS - 1)
     elif col.accepted:
         base = st.sampled_from(col.accepted)
     else:

@@ -54,7 +54,9 @@ CREATE TABLE failures (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     run_id          BIGINT  NOT NULL,
     property_id     BIGINT  NOT NULL,
-    minimal_dataset JSONB   NOT NULL CHECK (jsonb_typeof(minimal_dataset) = 'object'),
+    -- JSON, not JSONB: JSONB reorders keys, and the viewer shows tables and columns in
+    -- schema order. Nothing queries inside the document.
+    minimal_dataset JSON    NOT NULL CHECK (json_typeof(minimal_dataset) = 'object'),
     minimal_rows    INTEGER NOT NULL CHECK (minimal_rows >= 0),
     shrunk          BOOLEAN NOT NULL,
     shrink_calls    INTEGER NOT NULL CHECK (shrink_calls >= 0),

@@ -1,0 +1,26 @@
+name: tydlc data properties
+description: Run property-based tests against a data pipeline with a fixed seed and fail on an unexpected falsification.
+inputs:
+  engine:
+    description: duckdb or postgres (postgres needs DATABASE_URL in the environment)
+    default: duckdb
+  seed:
+    description: Fixed seed; the same seed generates the same datasets
+    default: "28"
+  max-examples:
+    description: Datasets to generate
+    default: "200"
+  python-version:
+    default: "3.11"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - shell: bash
+      run: pip install "${{ github.action_path }}[server]"
+    - shell: bash
+      run: >
+        tydlc run --engine "${{ inputs.engine }}" --seed "${{ inputs.seed }}"
+        --max-examples "${{ inputs.max-examples }}"

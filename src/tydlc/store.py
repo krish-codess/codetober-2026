@@ -15,7 +15,7 @@ from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
+from psycopg.types.json import Json
 
 log = logging.getLogger("tydlc.store")
 MIGRATIONS = Path(__file__).parent / "migrations"
@@ -26,7 +26,7 @@ def connect(dsn: str, attempts: int = 5) -> psycopg.Connection[Any]:
     """Connect, retrying a database that is still starting: 0.5 s, 1 s, 2 s, 4 s, then give up."""
     for attempt in range(1, attempts + 1):
         try:
-            return psycopg.connect(dsn, autocommit=True, connect_timeout=5)
+            return psycopg.connect(dsn, autocommit=True, connect_timeout=3)
         except psycopg.OperationalError as exc:
             if attempt == attempts:
                 raise
@@ -116,7 +116,7 @@ def finish_run(conn: psycopg.Connection[Any], run_id: int, report: Row) -> None:
                 conn.execute("INSERT INTO failures (run_id, property_id, minimal_dataset,"
                              " minimal_rows, shrunk, shrink_calls, shrink_ms)"
                              " VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                             (run_id, pid, Jsonb(f["minimal_dataset"]), f["minimal_rows"],
+                             (run_id, pid, Json(f["minimal_dataset"]), f["minimal_rows"],
                               f["shrunk"], f["shrink_calls"], f["shrink_ms"]))
 
 

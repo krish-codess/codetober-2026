@@ -115,7 +115,12 @@ def _first_order_before_last(c: Ctx) -> bool | None:
 
 
 def _deterministic(c: Ctx) -> bool:
-    return same_output(c.out, c.run(c.raw))
+    # To a tenth of a cent, not bit for bit. On DuckDB the same input can come back as
+    # -42949704.3 on one execution and -42949704.300000004 on a later one (DOUBLE money
+    # summed in whatever order a hash join emits rows). That depends on engine history,
+    # so no seed reproduces it and it cannot gate CI; docs/findings.md has the evidence
+    # and tests/test_findings.py the reproduction.
+    return same_output(c.out, c.run(c.raw), digits=3)
 
 
 def _row_order_invariant(c: Ctx) -> bool | None:
@@ -163,7 +168,9 @@ PROPERTIES = (
              "number_of_orders equals the customer's raw order count", _order_count_matches_raw),
     Property("first_order_before_last",
              "first_order <= most_recent_order", _first_order_before_last),
-    Property("deterministic", "running the pipeline twice gives the same output", _deterministic),
+    Property("deterministic",
+             "running the pipeline twice gives the same output (floats to 3 decimals)",
+             _deterministic),
     Property("row_order_invariant",
              "reversing input row order does not change the output", _row_order_invariant),
     Property("payment_is_local",
