@@ -104,43 +104,46 @@ def ingest_history(
 def ingest_order_snapshot(
     cfg: Settings, store: RawStore, client: EsiClient | None = None, universe: dict[str, Any] | None = None
 ) -> IngestReport:
-    """Snapshot the live order book (sell and buy) for every (region, item)."""
+    """Snapshot the live order book (sell and buy) for every (region, item).
+
+    One raw bundle per (region, snapshot): a JSON list of responses, each page body kept verbatim.
+    A failed item is recorded in the bundle with its status and no body, so the parser can tell
+    "no orders" (empty list) apart from "we do not know" (fetch failed).
+    """
     universe = universe or load_universe()
     client = client or EsiClient(cfg)
     report = IngestReport("orders")
     now = _now()
-    jobs = [(s, it["type_id"]) for s in universe["servers"] for it in universe["items"]]
-    report.requested = len(jobs)
-
-    def one(job: tuple[dict[str, Any], int]) -> None:
-        server, type_id = job
-        pages = client.market_orders(server["region_id"], type_id)
-        key = f"{server['server_id']}_{type_id}_{now:%H%M}"
-        if not all(p.ok for p in pages):
-            bad = next(p for p in pages if not p.ok)
-            report.failures.append({"key": key, "status": bad.status, "error": bad.error})
-            return
-        # One logical snapshot = all pages concatenated, exactly as served.
-        body = "[" + ",".join(p.body.strip()[1:-1] for p in pages if p.body and p.body.strip() != "[]") + "]"
+    report.requested = len(universe["servers"]) * len(universe["items"])
+    for server in universe["servers"]:
+        with ThreadPoolExecutor(cfg.esi_concurrency) as pool:
+            results = list(
+                pool.map(
+                    lambda it, region=server["region_id"]: (it["type_id"], client.market_orders(region, it["type_id"])),
+                    universe["items"],
+                )
+            )
+        responses = []
+        for type_id, pages in results:
+            for n, page in enumerate(pages, start=1):
+                responses.append({"type_id": type_id, "page": n, "status": page.status, "body": page.body})
+            if all(p.ok for p in pages):
+                report.stored += 1
+            else:
+                bad = next(p for p in pages if not p.ok)
+                report.failures.append(
+                    {"key": f"{server['server_id']}_{type_id}", "status": bad.status, "error": bad.error}
+                )
         store.put(
             source=SOURCE,
             kind="orders",
             day=now.date(),
-            key=key,
-            body=body,
+            key=f"{server['server_id']}_{now:%H%M}",
+            body=json.dumps(responses),
             fetched_at=now,
             observed_at=now,
-            meta={
-                "server_id": server["server_id"],
-                "region_id": server["region_id"],
-                "type_id": type_id,
-                "pages": len(pages),
-            },
+            meta={"server_id": server["server_id"], "region_id": server["region_id"]},
         )
-        report.stored += 1
-
-    with ThreadPoolExecutor(cfg.esi_concurrency) as pool:
-        list(pool.map(one, jobs))
     metrics.inc("ingest_payloads", report.stored, source=SOURCE, kind=report.kind)
     log(logger, logging.INFO, "order snapshot done", **report.as_dict())
     return report

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -27,6 +28,12 @@ class Settings(BaseSettings):
     http_backoff_base_s: float = 0.5
     http_backoff_cap_s: float = 30.0
     esi_concurrency: int = Field(default=8, ge=1, le=32)
+
+    # Synthetic world (fixed start so that scheduled ticks extend the same simulated history).
+    synth_start: date = date(2025, 9, 1)
+    synth_servers: int = Field(default=4, ge=1, le=8)
+    synth_seed: int = 20251001
+    synth_snapshots_per_day: int = Field(default=4, ge=1, le=24)
 
     log_level: str = "INFO"
     log_json: bool = True

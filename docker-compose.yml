@@ -6,8 +6,8 @@ x-pipeline-env: &pipeline-env
   GS_DATABASE_URL: postgresql://gs_pipeline:${GS_PIPELINE_PASSWORD:?set in .env}@postgres:5432/goldstandard
   GS_OWNER_DATABASE_URL: postgresql://gs_owner:${GS_OWNER_PASSWORD:?set in .env}@postgres:5432/goldstandard
   GS_ESI_USER_AGENT: ${GS_ESI_USER_AGENT:-goldstandard-cpi/0.1}
+  GS_SYNTH_START: ${GS_SYNTH_START:-2025-09-01}
   GS_SYNTH_SERVERS: ${GS_SYNTH_SERVERS:-4}
-  GS_SYNTH_DAYS: ${GS_SYNTH_DAYS:-395}
   GS_SYNTH_SEED: ${GS_SYNTH_SEED:-20251001}
   GS_LOG_LEVEL: ${GS_LOG_LEVEL:-INFO}
   DAGSTER_HOME: /opt/dagster/home

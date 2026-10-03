@@ -87,7 +87,7 @@ class RawStore:
         # never observe a half-written file even if we crash mid-write.
         fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")
         try:
-            with os.fdopen(fd, "wb") as fh, gzip.GzipFile(fileobj=fh, mode="wb", mtime=0) as gz:
+            with os.fdopen(fd, "wb") as fh, gzip.GzipFile(fileobj=fh, mode="wb", mtime=0, compresslevel=6) as gz:
                 gz.write(data)
             os.replace(tmp, path)
         finally:

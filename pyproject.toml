@@ -44,7 +44,9 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
 ignore = ["S101", "S311", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S", "B"]
+"tests/**" = ["S", "B", "E501"]
+"src/goldstandard/db.py" = ["E501"]  # SQL literals read better unwrapped
+"src/goldstandard/api/routes.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -64,6 +66,7 @@ markers = [
     "integration: requires a live PostgreSQL (DATABASE_URL)",
 ]
 addopts = "-ra"
+pythonpath = ["."]
 
 [tool.dagster]
 module_name = "goldstandard.defs"
