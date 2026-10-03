@@ -5,13 +5,15 @@ report the session fixture produced, so a request does not re-run the whole suit
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from tydlc import api, store
+from tydlc import api
 
 pytestmark = pytest.mark.integration
 KEY = {"X-API-Key": "test-key"}
@@ -194,4 +196,9 @@ def test_openapi_documents_the_contract(client: TestClient) -> None:
             "/api/failures/{failure_id}", "/api/analytics/failure-frequency",
             "/api/analytics/discovery-hit-rate", "/healthz"} <= set(spec["paths"])
     assert {"401", "422", "202", "200"} <= set(spec["paths"]["/api/runs"]["post"]["responses"])
-    assert store.Row  # keep the import honest
+
+
+def test_committed_api_reference_matches_the_code(client: TestClient) -> None:
+    """docs/openapi.json is generated (`tydlc openapi > docs/openapi.json`); it may not drift."""
+    committed = json.loads((Path(__file__).parent.parent / "docs" / "openapi.json").read_text())
+    assert committed == client.get("/openapi.json").json()

@@ -46,9 +46,9 @@ CREATE TABLE property_results (
     CHECK (status <> 'falsified' OR confidence = 0)
 );
 
--- Serves "history of one property, newest run first" (catalog history, failure
--- frequency). The primary key leads with run_id and cannot. See docs/explain_analyze.md.
-CREATE INDEX property_results_property_run_idx ON property_results (property_id, run_id DESC);
+-- No secondary index on (property_id, run_id): every query reaches a property's history
+-- through its newest runs, which the primary key already serves. Measured and rejected
+-- in docs/explain_analyze.md (Q1).
 
 CREATE TABLE failures (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -67,4 +67,6 @@ CREATE TABLE failures (
 );
 
 -- Serves the failure viewer filtered to one property, keyset-paginated by id DESC.
+-- Without it a rarely-failing property means walking the whole primary key backwards:
+-- 7 buffers instead of 291 on 72k rows, docs/explain_analyze.md (Q2).
 CREATE INDEX failures_property_id_idx ON failures (property_id, id DESC);

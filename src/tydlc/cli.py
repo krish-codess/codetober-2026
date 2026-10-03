@@ -119,6 +119,13 @@ def _serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _openapi(args: argparse.Namespace) -> int:
+    from tydlc.api import create_app
+
+    print(json.dumps(create_app().openapi(), indent=2, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tydlc", description=__doc__)
     parser.add_argument("--subject", default="jaffle")
@@ -156,6 +163,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
     p.set_defaults(fn=_serve)
+
+    p = sub.add_parser("openapi", help="print the API contract generated from the code")
+    p.set_defaults(fn=_openapi)
 
     args = parser.parse_args(argv)
     setup_logging()

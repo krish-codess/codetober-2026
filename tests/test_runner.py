@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -136,3 +139,22 @@ def test_outcomes_parquet_matches_the_report(report: dict[str, Any], data_dir: P
     failed = con.execute("SELECT count(*) FROM read_parquet(?) WHERE property = ? "
                          "AND outcome = 'fail'", [path, "orders_amount_not_null"]).fetchone()
     assert failed and failed[0] == _by_name(report)["orders_amount_not_null"]["failed"]
+
+
+def test_same_seed_reproduces_exactly_in_a_fresh_process(tmp_path: Path) -> None:
+    """The CI contract: same code, same command, same seed -> same data, same verdicts,
+    same minimal cases. Two separate interpreter processes, compared field by field."""
+    def run(key: str) -> dict[str, Any]:
+        subprocess.run(
+            [sys.executable, "-m", "tydlc.cli", "--data-dir", str(tmp_path), "run",
+             "--no-discover", "--max-examples", "30", "--seed", "5", "--run-key", key],
+            check=True, capture_output=True)
+        report = json.loads((tmp_path / "runs" / key / "report.json").read_text())
+        return {"rows": report["rows_generated"],
+                "properties": [(p["name"], p["passed"], p["failed"], p["vacuous"],
+                                p["failure"] and p["failure"]["minimal_dataset"])
+                               for p in report["properties"]]}
+
+    first = run("first")
+    assert first == run("second")
+    assert first["rows"] > 0

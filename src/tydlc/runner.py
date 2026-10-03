@@ -7,6 +7,7 @@ is a separate, targeted Hypothesis search per falsified property.
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import json
 import logging
@@ -31,6 +32,12 @@ from tydlc.ingest import ingest, load_staged
 from tydlc.properties import Ctx, Property
 from tydlc.schema import Dataset, Schema, total_rows
 from tydlc.subjects import Subject, get_subject
+
+# The optional PostgreSQL module is loaded here, for every engine, for the same reason
+# generation happens before evaluation (see run_suite): the set of loaded local modules
+# is an input to Hypothesis, and both engines must draw identical data from one seed.
+with contextlib.suppress(ImportError):
+    import tydlc.store  # noqa: F401
 
 log = logging.getLogger("tydlc.runner")
 
@@ -155,27 +162,30 @@ def run_suite(subject: Subject, engine_name: str, *, seed: int, max_examples: in
 
     run_dir = data_dir / "runs" / run_key
     run_dir.mkdir(parents=True, exist_ok=True)
+    # Generate everything first, then evaluate. Hypothesis seeds its generators with
+    # constants harvested from every loaded local module, so a module imported halfway
+    # through (or only for one engine) would change the data a seed produces.
+    generated: list[Dataset] = []
+
+    @hypothesis_seed(seed)
+    @settings(max_examples=max_examples, database=None, deadline=None,
+              suppress_health_check=_QUIET, phases=[Phase.generate])
+    @given(datasets(subject.schema))
+    def generate(ds: Dataset) -> None:
+        generated.append(ds)
+
+    generate()
     first_failure: dict[str, Dataset] = {}
-    examples = rows = 0
+    rows = sum(total_rows(ds) for ds in generated)
+    examples = len(generated)
     with open(run_dir / "outcomes.csv", "w", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["example", "property", "outcome", "input_rows"])
-
-        @hypothesis_seed(seed)
-        @settings(max_examples=max_examples, database=None, deadline=None,
-                  suppress_health_check=_QUIET, phases=[Phase.generate])
-        @given(datasets(subject.schema))
-        def sweep(ds: Dataset) -> None:
-            nonlocal examples, rows
-            n = total_rows(ds)
+        for i, ds in enumerate(generated):
             for name, result in evaluate(engine, props, ds).items():
-                writer.writerow([examples, name, _OUTCOME[result], n])
+                writer.writerow([i, name, _OUTCOME[result], total_rows(ds)])
                 if result is False:
                     first_failure.setdefault(name, ds)
-            examples += 1
-            rows += n
-
-        sweep()
     t_sweep = time.perf_counter()
 
     # Per-example outcomes land in Parquet sorted by property, so a later scan for one
