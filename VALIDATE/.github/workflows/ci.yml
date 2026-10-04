@@ -1,0 +1,89 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+env:
+  TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tydlc_test
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tydlc_test
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: {POSTGRES_PASSWORD: postgres, POSTGRES_DB: tydlc_test}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - run: pip install -e ".[dev]"
+      - run: playwright install --with-deps chromium
+      - name: Frontend component tests
+        run: node --test tests/js/app.test.mjs
+      - name: Unit, integration, API and end-to-end tests
+        run: pytest -q -p no:logging -rxXs
+
+  # The data properties themselves, on every change, with a fixed seed. Exit code 1
+  # means a declared property failed that is not a documented known bug, or a
+  # documented known bug stopped failing.
+  properties:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [duckdb, postgres]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: {POSTGRES_PASSWORD: postgres, POSTGRES_DB: tydlc_test}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          engine: ${{ matrix.engine }}
+          seed: "28"
+          max-examples: "200"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: property-report-${{ matrix.engine }}
+          path: data/runs/*/report.json
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: pip install build && python -m build
+      - name: The wheel installs and runs without the source tree
+        run: |
+          python -m venv /tmp/clean && /tmp/clean/bin/pip install dist/*.whl
+          cd /tmp && /tmp/clean/bin/tydlc discover | head -5
+      - run: docker build -t tydlc:ci .
+      - uses: actions/upload-artifact@v4
+        with: {name: dist, path: dist/}

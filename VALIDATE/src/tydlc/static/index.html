@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>tydlc · data properties</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header>
+    <div class="brand">tydlc <span>test your data like code</span></div>
+    <nav aria-label="Views">
+      <a href="#/failures" data-view="failures">Failures</a>
+      <a href="#/catalog" data-view="catalog">Invariant catalog</a>
+    </nav>
+    <div class="controls">
+      <label for="run">Run</label>
+      <select id="run" disabled><option>Loading…</option></select>
+      <button id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <main id="main" tabindex="-1" aria-busy="true"><p class="state">Loading runs…</p></main>
+  <footer><a href="docs">API reference</a> · <a href="healthz">Health</a></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

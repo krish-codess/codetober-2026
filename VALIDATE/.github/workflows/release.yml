@@ -1,0 +1,35 @@
+# Deploy: pushing a tag vX.Y.Z publishes the package to PyPI (trusted publishing, no
+# stored token), attaches the wheel to a GitHub release, and pushes the image to GHCR.
+# Rollback: see README "Deploy, rollback, backup".
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions: {id-token: write, contents: write}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Tag must match the package version
+        run: test "v$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)" = "$GITHUB_REF_NAME"
+      - run: pip install build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+        env: {GH_TOKEN: "${{ github.token }}"}
+
+  image:
+    runs-on: ubuntu-latest
+    permissions: {packages: write, contents: read}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: "${{ github.actor }}", password: "${{ github.token }}"}
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}

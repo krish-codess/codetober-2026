@@ -1,0 +1,70 @@
+# One command brings up the whole system with data in it:  docker compose up --build
+#   db       PostgreSQL 16 (results store, and the second engine under test)
+#   migrate  applies migrations as the owner, then exits
+#   seed     records one real run per engine so the viewer is never empty, then exits
+#   api      FastAPI + viewer on http://localhost:${API_PORT}
+# One image, built once by the `api` service and reused by the two one-shot jobs.
+# (Three services building the same tag race each other and fail.)
+x-app: &app
+  image: tydlc:local
+  pull_policy: never
+  volumes: [data:/data]
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql://tydlc_app:${TYDLC_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  TYDLC_WORKERS: ${TYDLC_WORKERS:-0}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TYDLC_APP_PASSWORD: ${TYDLC_APP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/initdb.sh:/docker-entrypoint-initdb.d/initdb.sh:ro
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5438}:5432"]  # loopback only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *app
+    command: ["tydlc", "migrate"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db: {condition: service_healthy}
+
+  seed:
+    <<: *app
+    # Fixed run keys make seeding idempotent: a second `up` records nothing new.
+    command:
+      - sh
+      - -c
+      - >
+        tydlc run --engine duckdb --store --run-key seed-duckdb --max-examples 100;
+        tydlc run --engine postgres --store --run-key seed-postgres --max-examples 100
+    environment: *app-env
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  api:
+    <<: *app
+    build: .
+    environment:
+      <<: *app-env
+      TYDLC_API_KEY: ${TYDLC_API_KEY}
+    ports: ["127.0.0.1:${API_PORT:-8028}:8000"]  # loopback only; put a TLS proxy in front to expose it
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  data:
