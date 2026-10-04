@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+node_modules/
+dist/
+frontend/test-results/
+frontend/playwright-report/
+.env
+# Downloaded/derived data: reproducible from pinned revisions via `python -m parse_app.pipeline`
+data/

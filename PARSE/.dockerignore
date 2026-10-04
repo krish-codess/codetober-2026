@@ -1,0 +1,13 @@
+.git
+.env
+data
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.egg-info
+frontend/test-results
+frontend/playwright-report
+docs

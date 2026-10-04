@@ -1,0 +1,104 @@
+# One command: `docker compose up --build`. Order: db -> migrate -> seed -> api/worker -> web.
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+    args:
+      GIT_SHA: ${GIT_SHA:-dev}
+  image: parse-backend:${IMAGE_TAG:-local}
+  environment: &backend-env
+    DATABASE_URL: postgresql+psycopg://${APP_DB_USER}:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+    DATA_DIR: /data
+    EMBED_BACKEND: ${EMBED_BACKEND:-onnx}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  volumes:
+    - appdata:/data          # downloaded model + raw feed files (immutable inputs)
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5441}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      # The only service that ever holds the owner credential.
+      MIGRATION_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes: []
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  seed:
+    <<: *backend
+    command: ["python", "-m", "parse_app.pipeline", "seed"]
+    environment:
+      <<: *backend-env
+      SEED_SOURCE: ${SEED_SOURCE:-real}
+      SEED_TEST_LANGS: ${SEED_TEST_LANGS:-en,es,de,fr,ja,zh,ru,ar,tr,hi,th,sw}
+      SEED_LABELS: ${SEED_LABELS:-300}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      ANNOTATOR_TOKEN: ${ANNOTATOR_TOKEN}
+      VIEWER_TOKEN: ${VIEWER_TOKEN}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "parse_app.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      <<: *backend-env
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      - "127.0.0.1:${API_PORT:-8041}:8000"
+    depends_on:
+      seed: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "parse_app.worker"]
+    environment:
+      <<: *backend-env
+      RETRAIN_INTERVAL_S: ${RETRAIN_INTERVAL_S:-900}
+      RETRAIN_MIN_NEW_LABELS: ${RETRAIN_MIN_NEW_LABELS:-25}
+      GATE_MAX_DROP: ${GATE_MAX_DROP:-0.02}
+    depends_on:
+      seed: { condition: service_completed_successfully }
+
+  web:
+    build: ./frontend
+    image: parse-web:${IMAGE_TAG:-local}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8141}:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  appdata:
