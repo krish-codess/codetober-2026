@@ -1,0 +1,26 @@
+-- index_series
+-- GET /v1/index: one series, a date range, latest vintage per day. Served by the index_value PK (series_id, day, vintage): DISTINCT ON walks it in order, no sort.
+-- table sizes: {"item_price_daily": 158972, "index_value": 32120, "patch_event": 249, "manipulation_event": 39296, "inflation_rate": 83836}
+-- captured 2026-10-03 09:17 UTC, PostgreSQL 160015
+
+SELECT day, value, coverage, status, vintage, revised FROM index_value_current WHERE series_id = %(series_id)s AND day BETWEEN %(lo)s AND %(hi)s ORDER BY day
+
+Subquery Scan on index_value_current (actual time=0.283..0.388 rows=364 loops=1)
+  Buffers: shared hit=23
+  ->  Unique (actual time=0.281..0.339 rows=364 loops=1)
+        Buffers: shared hit=23
+        ->  Sort (actual time=0.277..0.293 rows=364 loops=1)
+              Sort Key: index_value.day, index_value.vintage DESC
+              Sort Method: quicksort  Memory: 50kB
+              Buffers: shared hit=23
+              ->  Bitmap Heap Scan on index_value (actual time=0.066..0.131 rows=364 loops=1)
+                    Recheck Cond: ((series_id = '40'::smallint) AND (day >= '2025-10-02'::date) AND (day <= '2026-10-02'::date))
+                    Heap Blocks: exact=10
+                    Buffers: shared hit=17
+                    ->  Bitmap Index Scan on index_value_pkey (actual time=0.056..0.056 rows=364 loops=1)
+                          Index Cond: ((series_id = '40'::smallint) AND (day >= '2025-10-02'::date) AND (day <= '2026-10-02'::date))
+                          Buffers: shared hit=7
+Planning:
+  Buffers: shared hit=58
+Planning Time: 0.641 ms
+Execution Time: 0.581 ms

@@ -1,0 +1,97 @@
+# Every push and PR: lint, types, tests (unit + integration on real PostgreSQL), contract drift checks,
+# image builds and an end-to-end run of the primary journey against the full compose stack.
+# Branch protection on main requires all jobs, so a red build blocks merge.
+name: ci
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: goldstandard
+          POSTGRES_PASSWORD: ci-superuser
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s --health-retries 30
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: goldstandard
+      PGHOST: localhost
+      PGPORT: "5433"
+      PGPASSWORD: ci-superuser
+      GS_OWNER_PASSWORD: ci-owner
+      GS_PIPELINE_PASSWORD: ci-pipeline
+      GS_API_PASSWORD: ci-api
+      GS_OWNER_DATABASE_URL: postgresql://gs_owner:ci-owner@localhost:5433/goldstandard
+      GS_DATABASE_URL: postgresql://gs_pipeline:ci-pipeline@localhost:5433/goldstandard
+      GS_API_DATABASE_URL: postgresql://gs_api:ci-api@localhost:5433/goldstandard
+      GS_TEST_ADMIN_DSN: postgresql://postgres:ci-superuser@localhost:5433/postgres
+      GS_LOG_JSON: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with: { version: "0.5.11" }
+      - run: uv python install 3.11 && uv sync --frozen
+      - name: Lint
+        run: uv run ruff check src tests && uv run ruff format --check src tests
+      - name: Type check (mypy --strict)
+        run: uv run mypy
+      - name: API contract is generated from code (no drift)
+        run: uv run goldstandard openapi --check
+      - name: Bootstrap database roles (the script the compose stack runs)
+        run: sh docker/postgres-init.sh
+      - name: Migrations apply, roll back and re-apply cleanly
+        run: uv run goldstandard migrate up && uv run goldstandard migrate down && uv run goldstandard migrate up
+      - name: Tests (unit, property, differential, failure injection, integration, API)
+        run: uv run pytest -m "integration or not integration" --cov=goldstandard --cov-report=term-missing:skip-covered
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - name: API types are generated from the OpenAPI spec (no drift)
+        run: npm run gen:api && git diff --exit-code src/api-types.ts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  stack-e2e:
+    runs-on: ubuntu-latest
+    needs: [python, frontend]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images and start the whole stack with seed data
+        run: |
+          cp .env.example .env
+          docker compose up -d --build
+          docker compose wait seed
+          for i in $(seq 1 60); do curl -fsS http://localhost:8080/api/health/ready && break; sleep 5; done
+      - name: Verify from outside the containers
+        run: |
+          curl -fsS http://localhost:8000/health/ready | tee /dev/stderr | grep -q '"postgres":{"ok":true'
+          curl -fsS "http://localhost:8080/api/v1/index?world=eve" | python3 -c "import json,sys; assert json.load(sys.stdin)['points']"
+          docker compose run --rm migrate sh -c "! command -v pip && ! command -v gcc"   # no build tooling at runtime
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: End-to-end primary journey (desktop + phone)
+        working-directory: frontend
+        run: npm ci && npx playwright install --with-deps chromium && E2E_BASE_URL=http://localhost:8080 npx playwright test
+      - if: failure()
+        run: docker compose ps && docker compose logs --tail=200

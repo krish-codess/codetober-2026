@@ -1,0 +1,25 @@
+-- index_as_of
+-- GET /v1/index?as_of=: reproduce what was published at an instant. Same PK, filter on computed_at.
+-- table sizes: {"item_price_daily": 158972, "index_value": 32120, "patch_event": 249, "manipulation_event": 39296, "inflation_rate": 83836}
+-- captured 2026-10-03 09:17 UTC, PostgreSQL 160015
+
+SELECT DISTINCT ON (day) day, value, vintage FROM index_value WHERE series_id = %(series_id)s AND day BETWEEN %(lo)s AND %(hi)s AND computed_at <= now() ORDER BY day, vintage DESC
+
+Unique (actual time=0.212..0.273 rows=364 loops=1)
+  Buffers: shared hit=14
+  ->  Sort (actual time=0.212..0.228 rows=364 loops=1)
+        Sort Key: day, vintage DESC
+        Sort Method: quicksort  Memory: 42kB
+        Buffers: shared hit=14
+        ->  Bitmap Heap Scan on index_value (actual time=0.048..0.134 rows=364 loops=1)
+              Recheck Cond: ((series_id = '40'::smallint) AND (day >= '2025-10-02'::date) AND (day <= '2026-10-02'::date))
+              Filter: (computed_at <= now())
+              Heap Blocks: exact=10
+              Buffers: shared hit=14
+              ->  Bitmap Index Scan on index_value_pkey (actual time=0.035..0.036 rows=364 loops=1)
+                    Index Cond: ((series_id = '40'::smallint) AND (day >= '2025-10-02'::date) AND (day <= '2026-10-02'::date))
+                    Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.138 ms
+Execution Time: 0.355 ms

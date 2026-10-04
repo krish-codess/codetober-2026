@@ -1,0 +1,54 @@
+{
+  "index_vs_truth": {
+    "days": 365,
+    "mean_abs_log_error": 0.0032,
+    "p95_abs_log_error": 0.0079,
+    "max_abs_log_error": 0.0267,
+    "final_level_published": 99.63,
+    "final_level_truth": 97.72
+  },
+  "manipulation_recall": {
+    "absurd_listing": {
+      "injected": 616,
+      "caught_same_day": 596,
+      "caught_by": [
+        "extreme_listing"
+      ],
+      "recall": 0.968
+    },
+    "bait_listing": {
+      "injected": 569,
+      "caught_same_day": 545,
+      "caught_by": [
+        "extreme_listing"
+      ],
+      "recall": 0.958
+    },
+    "corner": {
+      "injected": 528,
+      "caught_same_day": 201,
+      "caught_by": [
+        "thin_market_spike",
+        "rejected_price"
+      ],
+      "recall": 0.381
+    }
+  },
+  "distorted_published_prices": {
+    "count": 59,
+    "share_of_published": 0.00089,
+    "flagged_as_thin_market_spike": 39,
+    "flagged_share": 0.661
+  },
+  "published_prices_vs_fair": {
+    "prices": 66273,
+    "median_abs_log_error": 0.057,
+    "share_beyond_2x": 0.00068,
+    "share_beyond_4x": 0.0
+  },
+  "fill_inference": {
+    "cells": 68019,
+    "inferred_over_true_volume": 1.004,
+    "log_correlation": 0.998
+  }
+}

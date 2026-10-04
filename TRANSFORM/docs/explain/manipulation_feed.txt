@@ -1,0 +1,16 @@
+-- manipulation_feed
+-- GET /v1/manipulation: newest-first keyset page for one server. Served by manipulation_event_feed (server_id, day DESC, item_id DESC, kind DESC), matching the ORDER BY exactly (migration 0003).
+-- table sizes: {"item_price_daily": 158972, "index_value": 32120, "patch_event": 249, "manipulation_event": 39296, "inflation_rate": 83836}
+-- captured 2026-10-03 09:17 UTC, PostgreSQL 160015
+
+SELECT server_id, item_id, day, kind, severity FROM manipulation_event WHERE server_id = %(server_id)s AND (day, item_id, kind) < ('9999-12-31'::date, 9223372036854775807, '~') ORDER BY day DESC, item_id DESC, kind DESC LIMIT 51
+
+Limit (actual time=0.121..0.149 rows=51 loops=1)
+  Buffers: shared hit=7
+  ->  Index Scan using manipulation_event_feed on manipulation_event (actual time=0.120..0.144 rows=51 loops=1)
+        Index Cond: ((server_id = 'syn-aurora'::text) AND (ROW(day, item_id, kind) < ROW('9999-12-31'::date, '9223372036854775807'::bigint, '~'::text)))
+        Buffers: shared hit=7
+Planning:
+  Buffers: shared hit=16
+Planning Time: 0.383 ms
+Execution Time: 0.269 ms

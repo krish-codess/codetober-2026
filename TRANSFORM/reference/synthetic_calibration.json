@@ -1,0 +1,314 @@
+{
+ "_doc": "Derived from real ESI data by goldstandard.profiling; consumed by the synthetic generator.",
+ "generated_at": "2026-10-03T07:18:42+00:00",
+ "items": {
+  "34": {
+   "name": "Tritanium",
+   "p0": 3.91,
+   "vol0": 5617532931.0,
+   "n_sell": 65,
+   "disp": 0.0368
+  },
+  "35": {
+   "name": "Pyerite",
+   "p0": 18.15,
+   "vol0": 2624591644.0,
+   "n_sell": 169,
+   "disp": 0.0825
+  },
+  "36": {
+   "name": "Mexallon",
+   "p0": 51.87,
+   "vol0": 680484390.0,
+   "n_sell": 71,
+   "disp": 0.056
+  },
+  "37": {
+   "name": "Isogen",
+   "p0": 189.6,
+   "vol0": 233622850.0,
+   "n_sell": 147,
+   "disp": 0.1436
+  },
+  "38": {
+   "name": "Nocxium",
+   "p0": 710.1,
+   "vol0": 53561630.0,
+   "n_sell": 85,
+   "disp": 0.0636
+  },
+  "39": {
+   "name": "Zydrine",
+   "p0": 1202.0,
+   "vol0": 26152031.0,
+   "n_sell": 58,
+   "disp": 0.1006
+  },
+  "40": {
+   "name": "Megacyte",
+   "p0": 2612.0,
+   "vol0": 15070323.0,
+   "n_sell": 77,
+   "disp": 0.0936
+  },
+  "44": {
+   "name": "Enriched Uranium",
+   "p0": 13065.0,
+   "vol0": 432229.5,
+   "n_sell": 30,
+   "disp": 0.0372
+  },
+  "209": {
+   "name": "Scourge Heavy Missile",
+   "p0": 60.02,
+   "vol0": 2175923.0,
+   "n_sell": 39,
+   "disp": 0.0227
+  },
+  "230": {
+   "name": "Antimatter Charge M",
+   "p0": 89.0,
+   "vol0": 1609718.0,
+   "n_sell": 79,
+   "disp": 0.2215
+  },
+  "238": {
+   "name": "Antimatter Charge L",
+   "p0": 181.9,
+   "vol0": 957665.0,
+   "n_sell": 43,
+   "disp": 0.101
+  },
+  "587": {
+   "name": "Rifter",
+   "p0": 339507.59,
+   "vol0": 103.0,
+   "n_sell": 67,
+   "disp": 0.2497
+  },
+  "2048": {
+   "name": "Damage Control II",
+   "p0": 391800.0,
+   "vol0": 6616.0,
+   "n_sell": 152,
+   "disp": 0.117
+  },
+  "2456": {
+   "name": "Hobgoblin II",
+   "p0": 320200.0,
+   "vol0": 6270.0,
+   "n_sell": 70,
+   "disp": 0.1344
+  },
+  "2488": {
+   "name": "Warrior II",
+   "p0": 332700.0,
+   "vol0": 11408.0,
+   "n_sell": 79,
+   "disp": 0.1435
+  },
+  "3244": {
+   "name": "Warp Disruptor II",
+   "p0": 1085000.0,
+   "vol0": 1535.0,
+   "n_sell": 33,
+   "disp": 0.0832
+  },
+  "3689": {
+   "name": "Mechanical Parts",
+   "p0": 10200.0,
+   "vol0": 903703.0,
+   "n_sell": 64,
+   "disp": 0.0363
+  },
+  "3841": {
+   "name": "Large Shield Extender II",
+   "p0": 923200.0,
+   "vol0": 3651.0,
+   "n_sell": 114,
+   "disp": 0.0566
+  },
+  "4051": {
+   "name": "Nitrogen Fuel Block",
+   "p0": 17480.0,
+   "vol0": 1131320.0,
+   "n_sell": 12,
+   "disp": 0.01
+  },
+  "4246": {
+   "name": "Hydrogen Fuel Block",
+   "p0": 17600.0,
+   "vol0": 553426.0,
+   "n_sell": 29,
+   "disp": 0.0783
+  },
+  "4247": {
+   "name": "Helium Fuel Block",
+   "p0": 19050.0,
+   "vol0": 388290.0,
+   "n_sell": 69,
+   "disp": 0.0869
+  },
+  "4312": {
+   "name": "Oxygen Fuel Block",
+   "p0": 17800.0,
+   "vol0": 338538.0,
+   "n_sell": 24,
+   "disp": 0.0115
+  },
+  "4405": {
+   "name": "Drone Damage Amplifier II",
+   "p0": 891900.0,
+   "vol0": 3159.0,
+   "n_sell": 68,
+   "disp": 0.0191
+  },
+  "9832": {
+   "name": "Coolant",
+   "p0": 11020.0,
+   "vol0": 1031073.0,
+   "n_sell": 71,
+   "disp": 0.0509
+  },
+  "9848": {
+   "name": "Robotics",
+   "p0": 83310.0,
+   "vol0": 380594.0,
+   "n_sell": 109,
+   "disp": 0.0309
+  },
+  "11399": {
+   "name": "Morphite",
+   "p0": 18910.0,
+   "vol0": 2545651.0,
+   "n_sell": 62,
+   "disp": 0.1239
+  },
+  "16240": {
+   "name": "Catalyst",
+   "p0": 1000000.0,
+   "vol0": 298.0,
+   "n_sell": 65,
+   "disp": 0.2295
+  },
+  "16272": {
+   "name": "Heavy Water",
+   "p0": 111.3,
+   "vol0": 35170617.0,
+   "n_sell": 66,
+   "disp": 0.0531
+  },
+  "16273": {
+   "name": "Liquid Ozone",
+   "p0": 96.19,
+   "vol0": 18481114.0,
+   "n_sell": 62,
+   "disp": 0.0354
+  },
+  "16275": {
+   "name": "Strontium Clathrates",
+   "p0": 4590.0,
+   "vol0": 1805098.0,
+   "n_sell": 68,
+   "disp": 0.1276
+  },
+  "16633": {
+   "name": "Hydrocarbons",
+   "p0": 402.2,
+   "vol0": 13515584.0,
+   "n_sell": 45,
+   "disp": 0.01
+  },
+  "16634": {
+   "name": "Atmospheric Gases",
+   "p0": 170.0,
+   "vol0": 13480649.0,
+   "n_sell": 50,
+   "disp": 0.1837
+  },
+  "16635": {
+   "name": "Evaporite Deposits",
+   "p0": 199.7,
+   "vol0": 9256938.0,
+   "n_sell": 65,
+   "disp": 0.2792
+  },
+  "16636": {
+   "name": "Silicates",
+   "p0": 324.6,
+   "vol0": 9815331.0,
+   "n_sell": 50,
+   "disp": 0.1851
+  },
+  "17478": {
+   "name": "Retriever",
+   "p0": 41970000.0,
+   "vol0": 126.0,
+   "n_sell": 41,
+   "disp": 0.0628
+  },
+  "17715": {
+   "name": "Gila",
+   "p0": 198800000.0,
+   "vol0": 189.0,
+   "n_sell": 19,
+   "disp": 0.0188
+  },
+  "17887": {
+   "name": "Oxygen Isotopes",
+   "p0": 604.2,
+   "vol0": 46770855.0,
+   "n_sell": 60,
+   "disp": 0.0188
+  },
+  "17888": {
+   "name": "Nitrogen Isotopes",
+   "p0": 606.0,
+   "vol0": 68401928.0,
+   "n_sell": 69,
+   "disp": 0.0531
+  },
+  "22291": {
+   "name": "Ballistic Control System II",
+   "p0": 769500.0,
+   "vol0": 5544.0,
+   "n_sell": 124,
+   "disp": 0.086
+  },
+  "24698": {
+   "name": "Drake",
+   "p0": 51900000.0,
+   "vol0": 75.0,
+   "n_sell": 55,
+   "disp": 0.0525
+  },
+  "28668": {
+   "name": "Nanite Repair Paste",
+   "p0": 26190.0,
+   "vol0": 901453.0,
+   "n_sell": 135,
+   "disp": 0.1753
+  },
+  "32880": {
+   "name": "Venture",
+   "p0": 230800.0,
+   "vol0": 760.0,
+   "n_sell": 142,
+   "disp": 0.355
+  },
+  "40519": {
+   "name": "Skill Extractor",
+   "p0": 466900000.0,
+   "vol0": 1451.0,
+   "n_sell": 123,
+   "disp": 0.0101
+  },
+  "40520": {
+   "name": "Large Skill Injector",
+   "p0": 741900000.0,
+   "vol0": 2154.0,
+   "n_sell": 159,
+   "disp": 0.0176
+  }
+ }
+}

@@ -1,0 +1,26 @@
+-- inflation_matrix
+-- GET /v1/inflation/matrix: latest value per series - one backward probe of the inflation_rate PK (series_id, window_days, day) per series via LATERAL ... LIMIT 1 (a DISTINCT ON version seq-scanned and sorted every row: 18 ms vs well under 1 ms).
+-- table sizes: {"item_price_daily": 158972, "index_value": 32120, "patch_event": 249, "manipulation_event": 39296, "inflation_rate": 83836}
+-- captured 2026-10-03 09:17 UTC, PostgreSQL 160015
+
+SELECT s.series_id, r.day, r.annualized FROM index_series s CROSS JOIN LATERAL ( SELECT day, annualized FROM inflation_rate WHERE series_id = s.series_id AND window_days = 30 ORDER BY day DESC LIMIT 1) r WHERE s.world_id = %(world)s ORDER BY s.series_id
+
+Sort (actual time=1.179..1.184 rows=40 loops=1)
+  Sort Key: s.series_id
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=161
+  ->  Nested Loop (actual time=0.071..1.141 rows=40 loops=1)
+        Buffers: shared hit=161
+        ->  Seq Scan on index_series s (actual time=0.015..0.041 rows=40 loops=1)
+              Filter: (world_id = 'synthetic'::text)
+              Rows Removed by Filter: 48
+              Buffers: shared hit=1
+        ->  Limit (actual time=0.026..0.027 rows=1 loops=40)
+              Buffers: shared hit=160
+              ->  Index Scan Backward using inflation_rate_pkey on inflation_rate (actual time=0.026..0.026 rows=1 loops=40)
+                    Index Cond: ((series_id = s.series_id) AND (window_days = 30))
+                    Buffers: shared hit=160
+Planning:
+  Buffers: shared hit=12
+Planning Time: 0.313 ms
+Execution Time: 1.357 ms

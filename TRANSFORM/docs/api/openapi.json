@@ -1,0 +1,2839 @@
+{
+  "components": {
+    "schemas": {
+      "ActivityOut": {
+        "properties": {
+          "activity_id": {
+            "title": "Activity Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_id",
+          "label"
+        ],
+        "title": "ActivityOut",
+        "type": "object"
+      },
+      "Attribution": {
+        "properties": {
+          "lag_hours": {
+            "title": "Lag Hours",
+            "type": "number"
+          },
+          "patch_id": {
+            "title": "Patch Id",
+            "type": "string"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "released_at": {
+            "format": "date-time",
+            "title": "Released At",
+            "type": "string"
+          },
+          "relevance": {
+            "title": "Relevance",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "patch_id",
+          "title",
+          "released_at",
+          "lag_hours",
+          "relevance",
+          "rank"
+        ],
+        "title": "Attribution",
+        "type": "object"
+      },
+      "DivisionOut": {
+        "properties": {
+          "division_id": {
+            "title": "Division Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "division_id",
+          "label"
+        ],
+        "title": "DivisionOut",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "examples": [
+              "not_found"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FlowPoint": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "faucets": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the world has no faucet feed (real EVE)",
+            "title": "Faucets"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "faucets - sinks: positive = currency supply growing",
+            "title": "Net"
+          },
+          "sinks": {
+            "title": "Sinks",
+            "type": "number"
+          }
+        },
+        "required": [
+          "day",
+          "sinks",
+          "faucets",
+          "net"
+        ],
+        "title": "FlowPoint",
+        "type": "object"
+      },
+      "FlowsResponse": {
+        "properties": {
+          "methods": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "object"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/FlowPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "server_id": {
+            "title": "Server Id",
+            "type": "string"
+          },
+          "world_id": {
+            "title": "World Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "world_id",
+          "server_id",
+          "methods",
+          "points"
+        ],
+        "title": "FlowsResponse",
+        "type": "object"
+      },
+      "Freshness": {
+        "properties": {
+          "age_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Hours"
+          },
+          "last_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "newest day with published prices",
+            "title": "Last Day"
+          },
+          "stale": {
+            "description": "true when the newest published day is older than the freshness SLO",
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "last_day",
+          "age_hours",
+          "stale"
+        ],
+        "title": "Freshness",
+        "type": "object"
+      },
+      "IndexPoint": {
+        "properties": {
+          "coverage": {
+            "description": "share of basket weight with an observed price that day",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Coverage",
+            "type": "number"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "revised": {
+            "title": "Revised",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "partial",
+              "insufficient"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "index level; null when coverage is insufficient (never extrapolated)",
+            "title": "Value"
+          },
+          "vintage": {
+            "description": "1 = first publication; >1 = revised by late or corrected data",
+            "minimum": 1.0,
+            "title": "Vintage",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "value",
+          "coverage",
+          "status",
+          "vintage",
+          "revised"
+        ],
+        "title": "IndexPoint",
+        "type": "object"
+      },
+      "IndexResponse": {
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when set, values as they were published at that instant",
+            "title": "As Of"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "method_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method Version"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/IndexPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SeriesRef"
+          }
+        },
+        "required": [
+          "series",
+          "method_version",
+          "as_of",
+          "freshness",
+          "points"
+        ],
+        "title": "IndexResponse",
+        "type": "object"
+      },
+      "InflationCell": {
+        "properties": {
+          "annualized": {
+            "title": "Annualized",
+            "type": "number"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "division_id": {
+            "title": "Division Id",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          },
+          "server_id": {
+            "title": "Server Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_id",
+          "division_id",
+          "day",
+          "rate",
+          "annualized"
+        ],
+        "title": "InflationCell",
+        "type": "object"
+      },
+      "InflationMatrix": {
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/InflationCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          },
+          "world_id": {
+            "title": "World Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "world_id",
+          "window_days",
+          "cells"
+        ],
+        "title": "InflationMatrix",
+        "type": "object"
+      },
+      "InflationPoint": {
+        "properties": {
+          "annualized": {
+            "title": "Annualized",
+            "type": "number"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "rate": {
+            "description": "change over the window, e.g. 0.02 = +2%",
+            "title": "Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "day",
+          "rate",
+          "annualized"
+        ],
+        "title": "InflationPoint",
+        "type": "object"
+      },
+      "InflationResponse": {
+        "properties": {
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/InflationPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SeriesRef"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "series",
+          "window_days",
+          "points"
+        ],
+        "title": "InflationResponse",
+        "type": "object"
+      },
+      "ItemOut": {
+        "properties": {
+          "division_id": {
+            "title": "Division Id",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "name",
+          "division_id"
+        ],
+        "title": "ItemOut",
+        "type": "object"
+      },
+      "ItemPower": {
+        "properties": {
+          "hours_per_unit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hours Per Unit"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "units_per_hour": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units Per Hour"
+          }
+        },
+        "required": [
+          "item_id",
+          "price",
+          "units_per_hour",
+          "hours_per_unit"
+        ],
+        "title": "ItemPower",
+        "type": "object"
+      },
+      "ManipulationOut": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "extreme_listing",
+              "rejected_price",
+              "thin_market_spike"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "n_obs": {
+            "title": "N Obs",
+            "type": "integer"
+          },
+          "server_id": {
+            "title": "Server Id",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "number"
+          },
+          "thin": {
+            "title": "Thin",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "server_id",
+          "item_id",
+          "item_name",
+          "day",
+          "kind",
+          "severity",
+          "n_obs",
+          "thin",
+          "detail"
+        ],
+        "title": "ManipulationOut",
+        "type": "object"
+      },
+      "ManipulationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManipulationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "$ref": "#/components/schemas/Page"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ],
+        "title": "ManipulationPage",
+        "type": "object"
+      },
+      "Page": {
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "opaque; pass back as ?cursor= to get the next page",
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "next_cursor",
+          "limit"
+        ],
+        "title": "Page",
+        "type": "object"
+      },
+      "PatchImpact": {
+        "properties": {
+          "log_change": {
+            "title": "Log Change",
+            "type": "number"
+          },
+          "robust_z": {
+            "title": "Robust Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "log_change",
+          "robust_z"
+        ],
+        "title": "PatchImpact",
+        "type": "object"
+      },
+      "PatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "is_major": {
+            "default": false,
+            "title": "Is Major",
+            "type": "boolean"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 100000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "patch_id": {
+            "pattern": "^[A-Za-z0-9._-]{1,64}$",
+            "title": "Patch Id",
+            "type": "string"
+          },
+          "released_at": {
+            "format": "date-time",
+            "title": "Released At",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "world_id": {
+            "pattern": "^[a-z0-9-]{1,40}$",
+            "title": "World Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "world_id",
+          "patch_id",
+          "released_at",
+          "title"
+        ],
+        "title": "PatchIn",
+        "type": "object"
+      },
+      "PatchOut": {
+        "properties": {
+          "impact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PatchImpact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "headline index move in the 7 days after vs before release"
+          },
+          "is_major": {
+            "title": "Is Major",
+            "type": "boolean"
+          },
+          "notes_excerpt": {
+            "title": "Notes Excerpt",
+            "type": "string"
+          },
+          "patch_id": {
+            "title": "Patch Id",
+            "type": "string"
+          },
+          "released_at": {
+            "format": "date-time",
+            "title": "Released At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "world_id": {
+            "title": "World Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "world_id",
+          "patch_id",
+          "released_at",
+          "version",
+          "title",
+          "tags",
+          "is_major",
+          "source",
+          "notes_excerpt",
+          "impact"
+        ],
+        "title": "PatchOut",
+        "type": "object"
+      },
+      "PatchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PatchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "$ref": "#/components/schemas/Page"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ],
+        "title": "PatchPage",
+        "type": "object"
+      },
+      "PowerPoint": {
+        "properties": {
+          "basket_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "cost that day of the basket that cost 1,000,000,000 at the index reference",
+            "title": "Basket Cost"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "hours_per_basket": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hours Per Basket"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemPower"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "real_wage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "wage deflated by the server index (reference-period currency)",
+            "title": "Real Wage"
+          },
+          "wage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "currency earned per hour (nominal bounty + yields at that day's prices)",
+            "title": "Wage"
+          },
+          "wage_goods": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wage Goods"
+          },
+          "wage_isk": {
+            "title": "Wage Isk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "day",
+          "wage",
+          "wage_isk",
+          "wage_goods",
+          "basket_cost",
+          "hours_per_basket",
+          "real_wage",
+          "items"
+        ],
+        "title": "PowerPoint",
+        "type": "object"
+      },
+      "PurchasingPowerResponse": {
+        "properties": {
+          "activity": {
+            "$ref": "#/components/schemas/ActivityOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PowerPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "rates": {
+            "items": {
+              "$ref": "#/components/schemas/WageRate"
+            },
+            "title": "Rates",
+            "type": "array"
+          },
+          "server_id": {
+            "title": "Server Id",
+            "type": "string"
+          },
+          "world_id": {
+            "title": "World Id",
+            "type": "string"
+          },
+          "yields": {
+            "items": {
+              "$ref": "#/components/schemas/Yield"
+            },
+            "title": "Yields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "world_id",
+          "server_id",
+          "activity",
+          "rates",
+          "yields",
+          "items",
+          "points"
+        ],
+        "title": "PurchasingPowerResponse",
+        "type": "object"
+      },
+      "Revision": {
+        "properties": {
+          "computed_at": {
+            "format": "date-time",
+            "title": "Computed At",
+            "type": "string"
+          },
+          "coverage": {
+            "title": "Coverage",
+            "type": "number"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "initial",
+              "late_data",
+              "source_revision",
+              "method_change"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "partial",
+              "insufficient"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "vintage": {
+            "title": "Vintage",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vintage",
+          "value",
+          "coverage",
+          "status",
+          "reason",
+          "input_hash",
+          "computed_at"
+        ],
+        "title": "Revision",
+        "type": "object"
+      },
+      "RevisionsResponse": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/Revision"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SeriesRef"
+          }
+        },
+        "required": [
+          "series",
+          "day",
+          "revisions"
+        ],
+        "title": "RevisionsResponse",
+        "type": "object"
+      },
+      "SeriesRef": {
+        "properties": {
+          "division_id": {
+            "description": "'all' for the headline index",
+            "title": "Division Id",
+            "type": "string"
+          },
+          "series_id": {
+            "title": "Series Id",
+            "type": "integer"
+          },
+          "server_id": {
+            "description": "'all' for the cross-server index",
+            "title": "Server Id",
+            "type": "string"
+          },
+          "world_id": {
+            "title": "World Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "world_id",
+          "server_id",
+          "division_id",
+          "series_id"
+        ],
+        "title": "SeriesRef",
+        "type": "object"
+      },
+      "ServerOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "server_id": {
+            "title": "Server Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_id",
+          "name"
+        ],
+        "title": "ServerOut",
+        "type": "object"
+      },
+      "ShockOut": {
+        "properties": {
+          "attributions": {
+            "description": "empty = unattributed: no patch in the lookback window",
+            "items": {
+              "$ref": "#/components/schemas/Attribution"
+            },
+            "title": "Attributions",
+            "type": "array"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "log_change": {
+            "title": "Log Change",
+            "type": "number"
+          },
+          "persistence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "share of the move still present 3 days later; null = not yet known",
+            "title": "Persistence"
+          },
+          "robust_z": {
+            "title": "Robust Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "day",
+          "log_change",
+          "robust_z",
+          "direction",
+          "persistence",
+          "attributions"
+        ],
+        "title": "ShockOut",
+        "type": "object"
+      },
+      "ShocksResponse": {
+        "properties": {
+          "series": {
+            "$ref": "#/components/schemas/SeriesRef"
+          },
+          "shocks": {
+            "items": {
+              "$ref": "#/components/schemas/ShockOut"
+            },
+            "title": "Shocks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "series",
+          "shocks"
+        ],
+        "title": "ShocksResponse",
+        "type": "object"
+      },
+      "WageRate": {
+        "properties": {
+          "effective_from": {
+            "format": "date",
+            "title": "Effective From",
+            "type": "string"
+          },
+          "isk_per_hour": {
+            "title": "Isk Per Hour",
+            "type": "number"
+          }
+        },
+        "required": [
+          "effective_from",
+          "isk_per_hour"
+        ],
+        "title": "WageRate",
+        "type": "object"
+      },
+      "WorldOut": {
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityOut"
+            },
+            "title": "Activities",
+            "type": "array"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "divisions": {
+            "items": {
+              "$ref": "#/components/schemas/DivisionOut"
+            },
+            "title": "Divisions",
+            "type": "array"
+          },
+          "first_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Day"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "is_synthetic": {
+            "title": "Is Synthetic",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_source": {
+            "enum": [
+              "snapshots",
+              "trade_history"
+            ],
+            "title": "Price Source",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          },
+          "world_id": {
+            "title": "World Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "world_id",
+          "name",
+          "price_source",
+          "is_synthetic",
+          "currency",
+          "servers",
+          "divisions",
+          "activities",
+          "items",
+          "first_day",
+          "freshness"
+        ],
+        "title": "WorldOut",
+        "type": "object"
+      },
+      "Yield": {
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "qty_per_hour": {
+            "title": "Qty Per Hour",
+            "type": "number"
+          }
+        },
+        "required": [
+          "item_id",
+          "name",
+          "qty_per_hour"
+        ],
+        "title": "Yield",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Consumer price index for video game economies: chain-linked Laspeyres indices per server, robust prices, patch shock attribution and purchasing power in labour-hours. All values are published append-only: a revised value is a new vintage, never an overwrite.",
+    "title": "GOLD STANDARD API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Liveness: the process is up",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "ready_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "description": "database unreachable"
+          }
+        },
+        "summary": "Readiness: exercises PostgreSQL and checks data freshness",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "prom_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Prometheus metrics",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/index": {
+      "get": {
+        "operationId": "get_index_v1_index_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "description": "server id, or 'all'",
+            "in": "query",
+            "name": "server",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "server id, or 'all'",
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "description": "division id, or 'all'",
+            "in": "query",
+            "name": "division",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "division id, or 'all'",
+              "pattern": "^[a-z_]{1,32}$",
+              "title": "Division",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "description": "ISO time: reproduce what was published then",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO time: reproduce what was published then",
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Index series (latest vintage, or as of a time)",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/v1/index/revisions": {
+      "get": {
+        "operationId": "get_revisions_v1_index_revisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          },
+          {
+            "description": "server id, or 'all'",
+            "in": "query",
+            "name": "server",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "server id, or 'all'",
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "description": "division id, or 'all'",
+            "in": "query",
+            "name": "division",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "division id, or 'all'",
+              "pattern": "^[a-z_]{1,32}$",
+              "title": "Division",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Every published vintage of one index value (audit trail)",
+        "tags": [
+          "index"
+        ]
+      }
+    },
+    "/v1/inflation": {
+      "get": {
+        "operationId": "get_inflation_v1_inflation_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "description": "server id, or 'all'",
+            "in": "query",
+            "name": "server",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "server id, or 'all'",
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "description": "division id, or 'all'",
+            "in": "query",
+            "name": "division",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "division id, or 'all'",
+              "pattern": "^[a-z_]{1,32}$",
+              "title": "Division",
+              "type": "string"
+            }
+          },
+          {
+            "description": "7, 30, 90 or 365 days",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "7, 30, 90 or 365 days",
+              "title": "Window",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InflationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Inflation rate over a rolling window",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/inflation/matrix": {
+      "get": {
+        "operationId": "get_inflation_matrix_v1_inflation_matrix_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "title": "Window",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InflationMatrix"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Latest inflation rate for every server x division",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/manipulation": {
+      "get": {
+        "operationId": "list_manipulation_v1_manipulation_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "server",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(extreme_listing|rejected_price|thin_market_spike)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_severity",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "minimum": 0,
+              "title": "Min Severity",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManipulationPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Manipulation / thin-market events for a server, newest first (keyset-paginated)",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/money-flows": {
+      "get": {
+        "operationId": "money_flows_v1_money_flows_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "server",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlowsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Currency sinks and faucets per day",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/patches": {
+      "get": {
+        "operationId": "list_patches_v1_patches_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "major_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Major Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatchPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Patch timeline (keyset-paginated)",
+        "tags": [
+          "patches"
+        ]
+      },
+      "post": {
+        "operationId": "create_patch_v1_patches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 8,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "idempotent replay of an earlier identical request"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "missing/invalid token"
+          },
+          "403": {
+            "description": "missing scope"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "idempotency key reused with a different body, or patch exists"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Record a patch note (auth: patches:write; Idempotency-Key required)",
+        "tags": [
+          "patches"
+        ]
+      }
+    },
+    "/v1/purchasing-power": {
+      "get": {
+        "operationId": "purchasing_power_v1_purchasing_power_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "server",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "activity",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Activity",
+              "type": "string"
+            }
+          },
+          {
+            "description": "up to 10 item ids",
+            "in": "query",
+            "name": "items",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{1,12}(,\\d{1,12}){0,9}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "up to 10 item ids",
+              "title": "Items"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchasingPowerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "What an hour of an activity buys over time (labour-hours)",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/shocks": {
+      "get": {
+        "operationId": "list_shocks_v1_shocks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "world",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "World",
+              "type": "string"
+            }
+          },
+          {
+            "description": "server id, or 'all'",
+            "in": "query",
+            "name": "server",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "server id, or 'all'",
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "title": "Server",
+              "type": "string"
+            }
+          },
+          {
+            "description": "division id, or 'all'",
+            "in": "query",
+            "name": "division",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "division id, or 'all'",
+              "pattern": "^[a-z_]{1,32}$",
+              "title": "Division",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShocksResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Detected shocks with patch attribution",
+        "tags": [
+          "patches"
+        ]
+      }
+    },
+    "/v1/worlds": {
+      "get": {
+        "operationId": "worlds_v1_worlds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorldOut"
+                  },
+                  "title": "Response Worlds V1 Worlds Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Worlds, servers, divisions, activities",
+        "tags": [
+          "reference"
+        ]
+      }
+    }
+  }
+}
