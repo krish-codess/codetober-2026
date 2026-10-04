@@ -1,0 +1,18 @@
+
+THE LAST TICKET - on-sale load test
+users 10000 (VUs 1000 x 10)  stock 1200  admission 100/s  hold 15s  availability readers 100 rps
+
+latency
+  reserve (critical path)  p50 901.1 ms | p95 3230.6 ms | p99 4906.8 ms | max 6048 ms | n 5226
+  confirm                  p50 1708.1 ms | p95 3810.6 ms | p99 4954.3 ms | max 6030 ms | n 975
+  queue join/poll          p50 923.7 ms | p95 2874.0 ms | p99 3820.2 ms | max 5616 ms | n 144956
+  availability (read)      p50 1491.0 ms | p95 3168.9 ms | p99 4140.5 ms | max 5625 ms | n 16172
+  all http                 p50 913.4 ms | p95 2883.5 ms | p99 3885.4 ms | max 6048 ms | n 182047
+
+outcomes
+  holds placed 1369   sold-out refusals 3789   503 contention 68   other 0
+  confirmed 472   abandoned 417   left empty-handed 3022   unexpected 5xx 0
+  http requests 182047
+
+invariant checks passed: 6 / 6
+thresholds: FAILED -> availability_latency: p(95)<150; availability_latency: p(99)<400; reserve_latency: p(50)<100; reserve_latency: p(95)<400; reserve_latency: p(99)<800

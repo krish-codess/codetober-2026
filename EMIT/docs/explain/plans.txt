@@ -1,0 +1,186 @@
+Pager usage is off.
+ANALYZE
+         table         | rows  
+-----------------------+-------
+ attempt_outcome       | 10531
+ dead_letter           |     0
+ flyway_schema_history |     3
+ inventory             |   110
+ inventory_event       | 21202
+ outbox                | 49013
+ processed_message     | 54113
+ raw_attempt           | 10531
+ reservation           | 10546
+ sale_event            |    25
+ sale_stat             |  3249
+(11 rows)
+
+
+== 1. reservation_due (partial: status = HELD) -- expiry sweeper, every second
+                                           QUERY PLAN                                            
+-------------------------------------------------------------------------------------------------
+ Limit (actual time=0.031..0.032 rows=0 loops=1)
+   Buffers: shared hit=5
+   ->  Index Scan using reservation_due on reservation (actual time=0.029..0.030 rows=0 loops=1)
+         Index Cond: (expires_at <= now())
+         Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=18
+ Planning Time: 0.378 ms
+ Execution Time: 0.085 ms
+(9 rows)
+
+
+== 2. position of a whole event at a past instant (no dedicated index: V3 dropped inventory_event_as_of, see 2b)
+                                            QUERY PLAN                                            
+--------------------------------------------------------------------------------------------------
+ HashAggregate (actual time=5.363..5.415 rows=5 loops=1)
+   Group Key: i.id
+   Batches: 1  Memory Usage: 24kB
+   Buffers: shared hit=493
+   ->  Hash Right Join (actual time=3.597..5.345 rows=30 loops=1)
+         Hash Cond: (e.inventory_id = i.id)
+         Buffers: shared hit=493
+         ->  Seq Scan on inventory_event e (actual time=0.004..3.813 rows=16001 loops=1)
+               Filter: (occurred_at <= '2026-10-03 17:21:45.842088+00'::timestamp with time zone)
+               Rows Removed by Filter: 5201
+               Buffers: shared hit=490
+         ->  Hash (actual time=0.046..0.047 rows=5 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 9kB
+               Buffers: shared hit=3
+               ->  Seq Scan on inventory i (actual time=0.029..0.036 rows=5 loops=1)
+                     Filter: (event_id = '87b86b7b-6941-4fe4-8824-2a6ec4661e91'::uuid)
+                     Rows Removed by Filter: 105
+                     Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=30
+ Planning Time: 0.680 ms
+ Execution Time: 5.521 ms
+(22 rows)
+
+
+== 2b. inventory_event_version UNIQUE (inventory_id, version) -- position of one section at a past instant
+                                              QUERY PLAN                                              
+------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=0.433..0.435 rows=1 loops=1)
+   Buffers: shared hit=95
+   ->  Bitmap Heap Scan on inventory_event (actual time=0.150..0.423 rows=4 loops=1)
+         Recheck Cond: (inventory_id = '8628d52b-3d3f-463d-b69a-cea02a3d02a8'::uuid)
+         Filter: (occurred_at <= '2026-10-03 17:21:45.842088+00'::timestamp with time zone)
+         Rows Removed by Filter: 773
+         Heap Blocks: exact=87
+         Buffers: shared hit=95
+         ->  Bitmap Index Scan on inventory_event_version (actual time=0.129..0.129 rows=777 loops=1)
+               Index Cond: (inventory_id = '8628d52b-3d3f-463d-b69a-cea02a3d02a8'::uuid)
+               Buffers: shared hit=8
+ Planning Time: 0.098 ms
+ Execution Time: 0.508 ms
+(13 rows)
+
+
+== 3. outbox_unpublished (partial: published_at IS NULL) -- relay, every 200 ms
+                                          QUERY PLAN                                           
+-----------------------------------------------------------------------------------------------
+ Limit (actual time=0.030..0.031 rows=0 loops=1)
+   Buffers: shared hit=1
+   ->  Index Scan using outbox_unpublished on outbox (actual time=0.028..0.029 rows=0 loops=1)
+         Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=24
+ Planning Time: 0.502 ms
+ Execution Time: 0.066 ms
+(8 rows)
+
+
+== 4. reservation_by_user (user_id, created_at DESC, id DESC) -- "my reservations", keyset page
+                                                                             QUERY PLAN                                                                              
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.041..0.043 rows=1 loops=1)
+   Buffers: shared hit=3
+   ->  Index Scan using reservation_by_user on reservation (actual time=0.040..0.041 rows=1 loops=1)
+         Index Cond: ((user_id = '33f05768-e473-4e6d-a78f-440536340709'::text) AND (ROW(created_at, id) < ROW(now(), 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid)))
+         Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=13
+ Planning Time: 0.662 ms
+ Execution Time: 0.149 ms
+(9 rows)
+
+
+== 5. reservation_idempotency UNIQUE (user_id, idempotency_key) -- replay check on every reservation
+                                          QUERY PLAN                                           
+-----------------------------------------------------------------------------------------------
+ Index Scan using reservation_by_user on reservation (actual time=0.029..0.029 rows=0 loops=1)
+   Index Cond: (user_id = '33f05768-e473-4e6d-a78f-440536340709'::text)
+   Filter: (idempotency_key = 'no-such-key'::text)
+   Rows Removed by Filter: 1
+   Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=6
+ Planning Time: 0.177 ms
+ Execution Time: 0.056 ms
+(9 rows)
+
+
+== 6. reservation_one_active_hold UNIQUE (event_id, user_id) WHERE status = HELD -- enforced on insert; shown via lookup
+                                              QUERY PLAN                                              
+------------------------------------------------------------------------------------------------------
+ Index Scan using reservation_due on reservation (actual time=0.067..0.068 rows=0 loops=1)
+   Filter: ((event_id = '87b86b7b-6941-4fe4-8824-2a6ec4661e91'::uuid) AND (user_id = 'nobody'::text))
+   Buffers: shared hit=5
+ Planning Time: 0.195 ms
+ Execution Time: 0.161 ms
+(5 rows)
+
+
+== 7. inventory_natural_key UNIQUE (event_id, ticket_type, section) -- availability read and intake lookup
+                                QUERY PLAN                                 
+---------------------------------------------------------------------------
+ Sort (actual time=0.110..0.112 rows=5 loops=1)
+   Sort Key: ticket_type, section
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=3
+   ->  Seq Scan on inventory (actual time=0.032..0.042 rows=5 loops=1)
+         Filter: (event_id = '87b86b7b-6941-4fe4-8824-2a6ec4661e91'::uuid)
+         Rows Removed by Filter: 105
+         Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=18
+ Planning Time: 0.422 ms
+ Execution Time: 0.160 ms
+(12 rows)
+
+
+== 8. inventory_event_version UNIQUE (inventory_id, version) -- the optimistic lock; also serves the drift check
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Index Only Scan using inventory_event_version on inventory_event (actual time=0.072..0.074 rows=1 loops=1)
+   Index Cond: ((inventory_id = '8628d52b-3d3f-463d-b69a-cea02a3d02a8'::uuid) AND (version = 1))
+   Heap Fetches: 0
+   Buffers: shared hit=6
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.109 ms
+ Execution Time: 0.116 ms
+(8 rows)
+
+
+== 9. attempt_outcome_quarantined (partial: status = QUARANTINED) -- quarantine review list
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.048..0.576 rows=51 loops=1)
+   Buffers: shared hit=84
+   ->  Merge Join (actual time=0.047..0.569 rows=51 loops=1)
+         Merge Cond: (o.raw_attempt_id = r.id)
+         Buffers: shared hit=84
+         ->  Index Scan using attempt_outcome_quarantined on attempt_outcome o (actual time=0.024..0.049 rows=51 loops=1)
+               Index Cond: (raw_attempt_id > 0)
+               Buffers: shared hit=17
+         ->  Index Scan using raw_attempt_pkey on raw_attempt r (actual time=0.015..0.356 rows=1684 loops=1)
+               Buffers: shared hit=67
+ Planning:
+   Buffers: shared hit=62
+ Planning Time: 1.093 ms
+ Execution Time: 0.632 ms
+(14 rows)
+

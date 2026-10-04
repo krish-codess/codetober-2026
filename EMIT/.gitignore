@@ -1,0 +1,11 @@
+target/
+node_modules/
+dist/
+.env
+*.log
+.idea/
+.vscode/
+*.iml
+frontend/test-results/
+frontend/playwright-report/
+data/generated/

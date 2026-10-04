@@ -1,0 +1,67 @@
+# Non-secret configuration. Credentials and the endpoints of the managed services live in two Secrets that are created
+# out of band (from a secrets manager) and are NOT in this repository:
+#   last-ticket-app       DB_URL DB_APP_USER DB_APP_PASSWORD REDIS_HOST REDIS_PORT REDIS_PASSWORD
+#                         KAFKA_BOOTSTRAP_SERVERS JWT_SECRET ADMIN_API_KEY
+#   last-ticket-migrator  DB_OWNER_USER DB_OWNER_PASSWORD        (mounted only into the migration init container)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: last-ticket-config
+data:
+  SPRING_FLYWAY_ENABLED: "false" # migrations run in the init container, with the owner role
+  SEED_DEMO: "false"
+  ADMISSION_TTL_SECONDS: "600"
+  SWEEPER_INTERVAL_MS: "1000"
+  OUTBOX_INTERVAL_MS: "200"
+  DB_POOL_SIZE: "20"
+  TOPIC_REPLICAS: "3"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 101, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: frontend
+          image: last-ticket-frontend
+          ports: [{ name: http, containerPort: 8080 }]
+          env: [{ name: API_UPSTREAM, value: "http://backend:8080" }]
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector: { app: frontend }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+# Everything enters through the frontend, which serves the UI and proxies /api to the backend.
+# The management port (8081: health, Prometheus) is deliberately not exposed.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: last-ticket
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: frontend, port: { name: http } } }

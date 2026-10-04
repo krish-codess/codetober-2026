@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5 # what `kubectl rollout undo` can go back to
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: /actuator/prometheus
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: { type: RuntimeDefault } }
+      terminationGracePeriodSeconds: 40
+      initContainers:
+        # Schema migrations, with the owner role. The long-running container below never sees these credentials.
+        - name: migrate
+          image: last-ticket-backend
+          command: ["java", "-cp", "last-ticket.jar", "com.lastticket.Migrate"]
+          envFrom:
+            - secretRef: { name: last-ticket-app }
+            - secretRef: { name: last-ticket-migrator }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      containers:
+        - name: backend
+          image: last-ticket-backend
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: management, containerPort: 8081 }
+          envFrom:
+            - configMapRef: { name: last-ticket-config }
+            - secretRef: { name: last-ticket-app }
+          resources:
+            requests: { cpu: 500m, memory: 768Mi }
+            limits: { memory: 1Gi } # the JVM takes 75% of this as heap
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+          # Deliberately slow to anger: restarting a JVM that is merely starved of CPU replaces a warm process with a
+          # cold one and makes the starvation worse (seen on kind: docs/deploy-verification.txt). A minute of
+          # consecutive 5 s timeouts before a restart; readiness below is what takes a slow pod out of rotation.
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          # Readiness checks Postgres only: without it nothing can be sold. Redis or Kafka being down degrades
+          # features (docs/operations.md) but must not take every pod out of rotation at once.
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          lifecycle:
+            preStop: { exec: { command: ["sleep", "5"] } } # let endpoints drain before SIGTERM
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector: { app: backend }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: backend }

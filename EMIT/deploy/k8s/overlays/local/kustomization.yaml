@@ -1,0 +1,41 @@
+# Local verification on kind: the same base as production, plus single-pod stand-ins for the three managed services
+# and throwaway credentials. Commands: docs/operations.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: last-ticket
+resources:
+  - ../../base
+  - stand-ins.yaml
+images:
+  - { name: last-ticket-backend, newName: last-ticket-backend, newTag: v1 }
+  - { name: last-ticket-frontend, newName: last-ticket-frontend, newTag: v1 }
+# Throwaway values for a cluster that exists on one laptop for ten minutes. Real environments get real Secrets.
+secretGenerator:
+  - name: last-ticket-app
+    options: { disableNameSuffixHash: true }
+    literals:
+      - DB_URL=jdbc:postgresql://postgres:5432/lastticket
+      - DB_APP_USER=lastticket_app
+      - DB_APP_PASSWORD=local-app-password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=local-redis-password
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - JWT_SECRET=local-only-secret-local-only-secret-32b
+      - ADMIN_API_KEY=local-admin-key
+  - name: last-ticket-migrator
+    options: { disableNameSuffixHash: true }
+    literals:
+      - DB_OWNER_USER=lastticket_owner
+      - DB_OWNER_PASSWORD=local-owner-password
+patches:
+  - target: { kind: ConfigMap, name: last-ticket-config }
+    patch: |-
+      - { op: replace, path: /data/TOPIC_REPLICAS, value: "1" }
+      - { op: replace, path: /data/SEED_DEMO, value: "true" }
+  - target: { kind: Deployment, name: backend }
+    patch: |-
+      - { op: replace, path: /spec/template/spec/containers/0/resources/requests, value: { cpu: 100m, memory: 512Mi } }
+  - target: { kind: Deployment, name: frontend }
+    patch: |-
+      - { op: replace, path: /spec/replicas, value: 1 }
