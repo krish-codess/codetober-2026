@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parse-app"
+version = "0.1.0"
+description = "Hierarchical, multilingual feedback classification with active learning"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "scikit-learn>=1.5",
+  "onnxruntime>=1.18",
+  "tokenizers>=0.19",
+  "httpx>=0.27",
+  "SQLAlchemy>=2.0",
+  "psycopg[binary]>=3.2",
+  "alembic>=1.13",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11"]
+# Offline experiment charts only; not needed by the running services.
+experiments = ["matplotlib>=3.8"]
+
+[tool.setuptools.packages.find]
+include = ["parse_app*"]
+
+[tool.setuptools.package-data]
+parse_app = ["*.json"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = [
+  "S101",  # asserts are the point in tests and self-checks
+  "E501",  # the formatter owns line length; what remains is SQL and message strings
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S311"]
+"migrations/*" = ["S608"]
+# f-strings in these files interpolate only module-level column-list constants; every value is a bound parameter
+"parse_app/api.py" = ["S608"]
+"parse_app/store.py" = ["S608"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["parse_app"]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "onnxruntime.*", "tokenizers.*", "matplotlib.*", "scipy.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["db: needs a real PostgreSQL (TEST_DATABASE_URL)"]
