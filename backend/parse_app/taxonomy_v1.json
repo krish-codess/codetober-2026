@@ -1,0 +1,969 @@
+{
+ "description": "Feedback taxonomy v1: domain / entity / attribute. Derived from M-ABSA category strings by taxonomy.canonical_path, nodes with fewer than 8 pool examples folded into their parent, then reviewed by hand.",
+ "nodes": [
+  {
+   "path": "coursera",
+   "title": "Coursera"
+  },
+  {
+   "path": "coursera/assignments",
+   "title": "Assignments"
+  },
+  {
+   "path": "coursera/assignments/comprehensiveness",
+   "title": "Comprehensiveness"
+  },
+  {
+   "path": "coursera/assignments/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "coursera/assignments/relatability",
+   "title": "Relatability"
+  },
+  {
+   "path": "coursera/assignments/workload",
+   "title": "Workload"
+  },
+  {
+   "path": "coursera/course",
+   "title": "Course"
+  },
+  {
+   "path": "coursera/course/comprehensiveness",
+   "title": "Comprehensiveness"
+  },
+  {
+   "path": "coursera/course/general",
+   "title": "General"
+  },
+  {
+   "path": "coursera/course/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "coursera/course/relatability",
+   "title": "Relatability"
+  },
+  {
+   "path": "coursera/course/value",
+   "title": "Value"
+  },
+  {
+   "path": "coursera/course/workload",
+   "title": "Workload"
+  },
+  {
+   "path": "coursera/faculty",
+   "title": "Faculty"
+  },
+  {
+   "path": "coursera/faculty/comprehensiveness",
+   "title": "Comprehensiveness"
+  },
+  {
+   "path": "coursera/faculty/general",
+   "title": "General"
+  },
+  {
+   "path": "coursera/faculty/relatability",
+   "title": "Relatability"
+  },
+  {
+   "path": "coursera/faculty/response",
+   "title": "Response"
+  },
+  {
+   "path": "coursera/grades",
+   "title": "Grades"
+  },
+  {
+   "path": "coursera/grades/general",
+   "title": "General"
+  },
+  {
+   "path": "coursera/material",
+   "title": "Material"
+  },
+  {
+   "path": "coursera/material/comprehensiveness",
+   "title": "Comprehensiveness"
+  },
+  {
+   "path": "coursera/material/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "coursera/material/quantity",
+   "title": "Quantity"
+  },
+  {
+   "path": "coursera/presentation",
+   "title": "Presentation"
+  },
+  {
+   "path": "coursera/presentation/comprehensiveness",
+   "title": "Comprehensiveness"
+  },
+  {
+   "path": "coursera/presentation/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "coursera/presentation/relatability",
+   "title": "Relatability"
+  },
+  {
+   "path": "food",
+   "title": "Food"
+  },
+  {
+   "path": "food/amazon",
+   "title": "Amazon"
+  },
+  {
+   "path": "food/amazon/availability",
+   "title": "Availability"
+  },
+  {
+   "path": "food/amazon/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "food/food",
+   "title": "Food"
+  },
+  {
+   "path": "food/food/general",
+   "title": "General"
+  },
+  {
+   "path": "food/food/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "food/food/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "food/food/recommendation",
+   "title": "Recommendation"
+  },
+  {
+   "path": "food/food/style_options",
+   "title": "Style options"
+  },
+  {
+   "path": "food/shipment",
+   "title": "Shipment"
+  },
+  {
+   "path": "food/shipment/delivery",
+   "title": "Delivery"
+  },
+  {
+   "path": "food/shipment/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "hotel",
+   "title": "Hotel"
+  },
+  {
+   "path": "hotel/facilities",
+   "title": "Facilities"
+  },
+  {
+   "path": "hotel/facilities/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "hotel/facilities/general",
+   "title": "General"
+  },
+  {
+   "path": "hotel/facilities/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "hotel/food_drinks",
+   "title": "Food drinks"
+  },
+  {
+   "path": "hotel/food_drinks/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "hotel/food_drinks/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "hotel/food_drinks/style_options",
+   "title": "Style options"
+  },
+  {
+   "path": "hotel/hotel",
+   "title": "Hotel"
+  },
+  {
+   "path": "hotel/hotel/cleanliness",
+   "title": "Cleanliness"
+  },
+  {
+   "path": "hotel/hotel/comfort",
+   "title": "Comfort"
+  },
+  {
+   "path": "hotel/hotel/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "hotel/hotel/general",
+   "title": "General"
+  },
+  {
+   "path": "hotel/hotel/miscellaneous",
+   "title": "Miscellaneous"
+  },
+  {
+   "path": "hotel/hotel/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "hotel/hotel/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "hotel/location",
+   "title": "Location"
+  },
+  {
+   "path": "hotel/location/general",
+   "title": "General"
+  },
+  {
+   "path": "hotel/room_amenities",
+   "title": "Room amenities"
+  },
+  {
+   "path": "hotel/room_amenities/comfort",
+   "title": "Comfort"
+  },
+  {
+   "path": "hotel/room_amenities/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "hotel/room_amenities/general",
+   "title": "General"
+  },
+  {
+   "path": "hotel/room_amenities/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "hotel/rooms",
+   "title": "Rooms"
+  },
+  {
+   "path": "hotel/rooms/cleanliness",
+   "title": "Cleanliness"
+  },
+  {
+   "path": "hotel/rooms/comfort",
+   "title": "Comfort"
+  },
+  {
+   "path": "hotel/rooms/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "hotel/rooms/general",
+   "title": "General"
+  },
+  {
+   "path": "hotel/rooms/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "hotel/rooms/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "hotel/service",
+   "title": "Service"
+  },
+  {
+   "path": "hotel/service/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop",
+   "title": "Laptop"
+  },
+  {
+   "path": "laptop/battery",
+   "title": "Battery"
+  },
+  {
+   "path": "laptop/battery/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/battery/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/battery/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "laptop/company",
+   "title": "Company"
+  },
+  {
+   "path": "laptop/company/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/cpu",
+   "title": "Cpu"
+  },
+  {
+   "path": "laptop/cpu/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/display",
+   "title": "Display"
+  },
+  {
+   "path": "laptop/display/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "laptop/display/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/display/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/display/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "laptop/graphics",
+   "title": "Graphics"
+  },
+  {
+   "path": "laptop/hard_disc",
+   "title": "Hard disc"
+  },
+  {
+   "path": "laptop/hard_disc/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/hard_disc/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/hardware",
+   "title": "Hardware"
+  },
+  {
+   "path": "laptop/hardware/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/hardware/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/keyboard",
+   "title": "Keyboard"
+  },
+  {
+   "path": "laptop/keyboard/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "laptop/keyboard/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/keyboard/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/keyboard/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "laptop/keyboard/usability",
+   "title": "Usability"
+  },
+  {
+   "path": "laptop/laptop",
+   "title": "Laptop"
+  },
+  {
+   "path": "laptop/laptop/design_features",
+   "title": "Design features"
+  },
+  {
+   "path": "laptop/laptop/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/laptop/miscellaneous",
+   "title": "Miscellaneous"
+  },
+  {
+   "path": "laptop/laptop/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/laptop/portability",
+   "title": "Portability"
+  },
+  {
+   "path": "laptop/laptop/price",
+   "title": "Price"
+  },
+  {
+   "path": "laptop/laptop/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "laptop/laptop/usability",
+   "title": "Usability"
+  },
+  {
+   "path": "laptop/memory",
+   "title": "Memory"
+  },
+  {
+   "path": "laptop/memory/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/multimedia_devices",
+   "title": "Multimedia devices"
+  },
+  {
+   "path": "laptop/multimedia_devices/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/multimedia_devices/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/os",
+   "title": "Os"
+  },
+  {
+   "path": "laptop/os/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/os/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/ports",
+   "title": "Ports"
+  },
+  {
+   "path": "laptop/ports/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/ports/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/power_supply",
+   "title": "Power supply"
+  },
+  {
+   "path": "laptop/power_supply/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/shipping",
+   "title": "Shipping"
+  },
+  {
+   "path": "laptop/shipping/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/software",
+   "title": "Software"
+  },
+  {
+   "path": "laptop/software/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/software/operation_performance",
+   "title": "Operation performance"
+  },
+  {
+   "path": "laptop/software/usability",
+   "title": "Usability"
+  },
+  {
+   "path": "laptop/support",
+   "title": "Support"
+  },
+  {
+   "path": "laptop/support/general",
+   "title": "General"
+  },
+  {
+   "path": "laptop/support/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "phone",
+   "title": "Phone"
+  },
+  {
+   "path": "phone/after_sales_service",
+   "title": "After sales service"
+  },
+  {
+   "path": "phone/after_sales_service/exchange_warranty_return",
+   "title": "Exchange warranty return"
+  },
+  {
+   "path": "phone/appearance_design",
+   "title": "Appearance design"
+  },
+  {
+   "path": "phone/appearance_design/aesthetics_general",
+   "title": "Aesthetics general"
+  },
+  {
+   "path": "phone/appearance_design/color",
+   "title": "Color"
+  },
+  {
+   "path": "phone/appearance_design/fuselage_size",
+   "title": "Fuselage size"
+  },
+  {
+   "path": "phone/appearance_design/grip_feeling",
+   "title": "Grip feeling"
+  },
+  {
+   "path": "phone/appearance_design/weight",
+   "title": "Weight"
+  },
+  {
+   "path": "phone/audio_sound",
+   "title": "Audio sound"
+  },
+  {
+   "path": "phone/audio_sound/tone_quality",
+   "title": "Tone quality"
+  },
+  {
+   "path": "phone/audio_sound/volume_and_speaker",
+   "title": "Volume and speaker"
+  },
+  {
+   "path": "phone/battery_longevity",
+   "title": "Battery longevity"
+  },
+  {
+   "path": "phone/battery_longevity/battery_capacity",
+   "title": "Battery capacity"
+  },
+  {
+   "path": "phone/battery_longevity/battery_life",
+   "title": "Battery life"
+  },
+  {
+   "path": "phone/battery_longevity/charging_speed",
+   "title": "Charging speed"
+  },
+  {
+   "path": "phone/battery_longevity/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/battery_longevity/power_consumption_speed",
+   "title": "Power consumption speed"
+  },
+  {
+   "path": "phone/battery_longevity/standby_time",
+   "title": "Standby time"
+  },
+  {
+   "path": "phone/branding_marketing",
+   "title": "Branding marketing"
+  },
+  {
+   "path": "phone/branding_marketing/promotional_giveaways",
+   "title": "Promotional giveaways"
+  },
+  {
+   "path": "phone/buyer_attitude",
+   "title": "Buyer attitude"
+  },
+  {
+   "path": "phone/buyer_attitude/loyalty",
+   "title": "Loyalty"
+  },
+  {
+   "path": "phone/buyer_attitude/recommendable",
+   "title": "Recommendable"
+  },
+  {
+   "path": "phone/buyer_attitude/repurchase_and_churn_tendency",
+   "title": "Repurchase and churn tendency"
+  },
+  {
+   "path": "phone/buyer_attitude/shopping_experiences",
+   "title": "Shopping experiences"
+  },
+  {
+   "path": "phone/camera",
+   "title": "Camera"
+  },
+  {
+   "path": "phone/camera/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/ease_of_use",
+   "title": "Ease of use"
+  },
+  {
+   "path": "phone/ease_of_use/audience_groups",
+   "title": "Audience groups"
+  },
+  {
+   "path": "phone/ease_of_use/easy_to_use",
+   "title": "Easy to use"
+  },
+  {
+   "path": "phone/key_design",
+   "title": "Key design"
+  },
+  {
+   "path": "phone/key_design/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/logistics",
+   "title": "Logistics"
+  },
+  {
+   "path": "phone/logistics/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/logistics/lost_and_damaged",
+   "title": "Lost and damaged"
+  },
+  {
+   "path": "phone/logistics/speed",
+   "title": "Speed"
+  },
+  {
+   "path": "phone/overall",
+   "title": "Overall"
+  },
+  {
+   "path": "phone/overall/overall",
+   "title": "Overall"
+  },
+  {
+   "path": "phone/performance",
+   "title": "Performance"
+  },
+  {
+   "path": "phone/performance/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/performance/heat_generation",
+   "title": "Heat generation"
+  },
+  {
+   "path": "phone/performance/running_speed",
+   "title": "Running speed"
+  },
+  {
+   "path": "phone/price",
+   "title": "Price"
+  },
+  {
+   "path": "phone/price/price",
+   "title": "Price"
+  },
+  {
+   "path": "phone/price/value_for_money",
+   "title": "Value for money"
+  },
+  {
+   "path": "phone/product_accessories",
+   "title": "Product accessories"
+  },
+  {
+   "path": "phone/product_accessories/cell_phone_film",
+   "title": "Cell phone film"
+  },
+  {
+   "path": "phone/product_accessories/charger",
+   "title": "Charger"
+  },
+  {
+   "path": "phone/product_accessories/charging_cable",
+   "title": "Charging cable"
+  },
+  {
+   "path": "phone/product_accessories/headphones",
+   "title": "Headphones"
+  },
+  {
+   "path": "phone/product_accessories/phone_cases",
+   "title": "Phone cases"
+  },
+  {
+   "path": "phone/product_configuration",
+   "title": "Product configuration"
+  },
+  {
+   "path": "phone/product_configuration/cpu",
+   "title": "Cpu"
+  },
+  {
+   "path": "phone/product_configuration/memory",
+   "title": "Memory"
+  },
+  {
+   "path": "phone/product_configuration/operating_memory",
+   "title": "Operating memory"
+  },
+  {
+   "path": "phone/product_packaging",
+   "title": "Product packaging"
+  },
+  {
+   "path": "phone/product_packaging/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/product_packaging/packaging_materials",
+   "title": "Packaging materials"
+  },
+  {
+   "path": "phone/product_quality",
+   "title": "Product quality"
+  },
+  {
+   "path": "phone/product_quality/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/product_quality/genuine_product",
+   "title": "Genuine product"
+  },
+  {
+   "path": "phone/screen",
+   "title": "Screen"
+  },
+  {
+   "path": "phone/screen/clarity",
+   "title": "Clarity"
+  },
+  {
+   "path": "phone/screen/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/screen/size",
+   "title": "Size"
+  },
+  {
+   "path": "phone/security",
+   "title": "Security"
+  },
+  {
+   "path": "phone/security/screen_unlock",
+   "title": "Screen unlock"
+  },
+  {
+   "path": "phone/seller_service",
+   "title": "Seller service"
+  },
+  {
+   "path": "phone/seller_service/attitude",
+   "title": "Attitude"
+  },
+  {
+   "path": "phone/seller_service/shipping",
+   "title": "Shipping"
+  },
+  {
+   "path": "phone/seller_service/timeliness_of_seller_service",
+   "title": "Timeliness of seller service"
+  },
+  {
+   "path": "phone/shooting_functions",
+   "title": "Shooting functions"
+  },
+  {
+   "path": "phone/shooting_functions/general",
+   "title": "General"
+  },
+  {
+   "path": "phone/signal",
+   "title": "Signal"
+  },
+  {
+   "path": "phone/signal/signal_general",
+   "title": "Signal general"
+  },
+  {
+   "path": "phone/signal/signal_of_mobile_network",
+   "title": "Signal of mobile network"
+  },
+  {
+   "path": "phone/smart_connect",
+   "title": "Smart connect"
+  },
+  {
+   "path": "phone/smart_connect/bluetooth_connection",
+   "title": "Bluetooth connection"
+  },
+  {
+   "path": "phone/system",
+   "title": "System"
+  },
+  {
+   "path": "phone/system/application",
+   "title": "Application"
+  },
+  {
+   "path": "phone/system/lock_screen_design",
+   "title": "Lock screen design"
+  },
+  {
+   "path": "phone/system/software_compatibility",
+   "title": "Software compatibility"
+  },
+  {
+   "path": "phone/system/system_general",
+   "title": "System general"
+  },
+  {
+   "path": "restaurant",
+   "title": "Restaurant"
+  },
+  {
+   "path": "restaurant/ambience",
+   "title": "Ambience"
+  },
+  {
+   "path": "restaurant/ambience/general",
+   "title": "General"
+  },
+  {
+   "path": "restaurant/drinks",
+   "title": "Drinks"
+  },
+  {
+   "path": "restaurant/drinks/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "restaurant/drinks/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "restaurant/drinks/style_options",
+   "title": "Style options"
+  },
+  {
+   "path": "restaurant/food",
+   "title": "Food"
+  },
+  {
+   "path": "restaurant/food/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "restaurant/food/quality",
+   "title": "Quality"
+  },
+  {
+   "path": "restaurant/food/style_options",
+   "title": "Style options"
+  },
+  {
+   "path": "restaurant/location",
+   "title": "Location"
+  },
+  {
+   "path": "restaurant/location/general",
+   "title": "General"
+  },
+  {
+   "path": "restaurant/restaurant",
+   "title": "Restaurant"
+  },
+  {
+   "path": "restaurant/restaurant/general",
+   "title": "General"
+  },
+  {
+   "path": "restaurant/restaurant/miscellaneous",
+   "title": "Miscellaneous"
+  },
+  {
+   "path": "restaurant/restaurant/prices",
+   "title": "Prices"
+  },
+  {
+   "path": "restaurant/service",
+   "title": "Service"
+  },
+  {
+   "path": "restaurant/service/general",
+   "title": "General"
+  },
+  {
+   "path": "sight",
+   "title": "Sight"
+  },
+  {
+   "path": "sight/course_general_feedback",
+   "title": "Course general feedback"
+  },
+  {
+   "path": "sight/instructor",
+   "title": "Instructor"
+  },
+  {
+   "path": "sight/mathematical_related_concept",
+   "title": "Mathematical related concept"
+  },
+  {
+   "path": "sight/other",
+   "title": "Other"
+  },
+  {
+   "path": "sight/teaching_setup",
+   "title": "Teaching setup"
+  }
+ ]
+}
