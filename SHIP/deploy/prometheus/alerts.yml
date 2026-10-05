@@ -1,0 +1,64 @@
+# Alert rules for the migration controller and the application it migrates.
+# Loaded by Prometheus in docker compose and, as a ConfigMap, in Kubernetes.
+groups:
+  - name: ship
+    rules:
+      - alert: ShipdDown
+        expr: up{job="shipd"} == 0
+        for: 1m
+        labels: { severity: page }
+        annotations:
+          summary: The migration controller is down
+          description: A migration mid-expand stays as it is and is rolled back when the controller returns. Applications are unaffected. See docs/OPERATIONS.md#controller-down.
+
+      - alert: MigrationReverted
+        expr: increase(shipd_migrations_total{outcome="reverted"}[10m]) > 0
+        labels: { severity: ticket }
+        annotations:
+          summary: A migration was reverted
+          description: The run's reason field says which threshold or error stopped it. Nothing is left behind; fix the cause and submit again.
+
+      - alert: MigrationFailed
+        expr: increase(shipd_migrations_total{outcome="failed"}[10m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: A migration failed and could not clean up after itself
+          description: The schema may be between versions. See docs/OPERATIONS.md#a-run-is-failed.
+
+      - alert: ApplicationBlockedByMigration
+        expr: shipd_blocked_max_wait_seconds > 1
+        for: 10s
+        labels: { severity: page }
+        annotations:
+          summary: Application sessions have been blocked by a migration for over a second
+          description: The guard aborts at max_lock_wait_ms. If this fires and the run continues, abort it by hand.
+
+      - alert: MigrationWaitingForLocks
+        expr: rate(shipd_migrator_lock_wait_seconds_total[1m]) > 0.3
+        for: 1m
+        labels: { severity: ticket }
+        annotations:
+          summary: A migration spends a third of its time waiting for locks
+          description: A long-running transaction is probably holding the table. Find it in pg_stat_activity.
+
+      - alert: BackfillStalled
+        expr: shipd_migration_in_flight == 1 and shipd_backfill_rows_total > 0 and shipd_backfill_rows_done < shipd_backfill_rows_total and delta(shipd_backfill_rows_done[5m]) == 0
+        for: 5m
+        labels: { severity: ticket }
+        annotations:
+          summary: A backfill has made no progress for five minutes
+
+      - alert: ShopErrors
+        expr: sum by (version) (rate(shop_ops_total{result="error"}[1m])) > 0
+        for: 30s
+        labels: { severity: page }
+        annotations:
+          summary: "Application {{ $labels.version }} is failing requests"
+          description: If a migration is in flight, the guard should already be reverting it.
+
+      - alert: ShopReadsDisagree
+        expr: increase(shop_read_mismatches_total[5m]) > 0
+        labels: { severity: page }
+        annotations:
+          summary: "Application {{ $labels.version }} read an amount other than the one written"
+          description: Old and new representations disagree. Do not complete the migration; abort it.

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"time"
@@ -43,8 +44,9 @@ func hasCode(err error, code pq.ErrorCode) bool {
 }
 
 const (
-	lockNotAvailable = "55P03"
-	notInTransaction = "25001" // CREATE/DROP INDEX CONCURRENTLY cannot run inside a transaction block
+	lockNotAvailable  = "55P03"
+	notInTransaction  = "25001" // CREATE/DROP INDEX CONCURRENTLY cannot run inside a transaction block
+	idleInTransaction = "25P03" // the server ended a transaction this process left idle
 )
 
 // ddlTx runs f in one transaction as the migrator. If a statement cannot get its lock within lock_timeout
@@ -60,8 +62,12 @@ func (e *Engine) ddlTx(ctx context.Context, s Settings, budget time.Duration, f 
 			defer tx.Rollback()
 			// application_name marks the session as the migration for the guard; the pgroll setting stops
 			// pgroll's event trigger from recording these statements as a hand-made schema change.
-			if _, err := tx.ExecContext(ctx, fmt.Sprintf(`SET LOCAL lock_timeout = %d; SET LOCAL search_path TO %s;
-				SET LOCAL application_name TO 'pgroll'; SET LOCAL pgroll.no_inferred_migrations TO 'TRUE'`, s.LockTimeoutMs, appSchema)); err != nil {
+			// The transaction holds exclusive locks between statements, and the next statement comes from this
+			// process. If this process stalls, idle_in_transaction_session_timeout has the server end the
+			// transaction, so a frozen controller cannot sit on a table lock.
+			if _, err := tx.ExecContext(ctx, fmt.Sprintf(`SET LOCAL lock_timeout = %d; SET LOCAL idle_in_transaction_session_timeout = %d;
+				SET LOCAL search_path TO %s; SET LOCAL application_name TO 'pgroll'; SET LOCAL pgroll.no_inferred_migrations TO 'TRUE'`,
+				s.LockTimeoutMs, max(2*s.LockTimeoutMs, 2000), appSchema)); err != nil {
 				return err
 			}
 			if err := f(txDB{tx}); err != nil {
@@ -69,7 +75,7 @@ func (e *Engine) ddlTx(ctx context.Context, s Settings, budget time.Duration, f 
 			}
 			return tx.Commit()
 		}()
-		if !hasCode(err, lockNotAvailable) {
+		if !hasCode(err, lockNotAvailable) && !hasCode(err, idleInTransaction) && !errors.Is(err, driver.ErrBadConn) {
 			return err
 		}
 		if time.Now().After(deadline) {
@@ -82,15 +88,27 @@ func (e *Engine) ddlTx(ctx context.Context, s Settings, budget time.Duration, f 
 }
 
 // probeLock proves an exclusive lock on the table can be had right now, without changing anything.
+// The whole probe is one message to the server (an implicit transaction), so the lock is taken and released
+// without waiting on this process in between.
 func (e *Engine) probeLock(ctx context.Context, table string, s Settings) error {
-	err := e.ddlTx(ctx, s, time.Duration(s.LockBudgetS)*time.Second, func(conn db.DB) error {
-		_, err := conn.ExecContext(ctx, `LOCK TABLE `+pq.QuoteIdentifier(table)+` IN ACCESS EXCLUSIVE MODE`)
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("could not lock %s: %w", table, err)
+	probe := fmt.Sprintf(`SET LOCAL lock_timeout = %d; SET LOCAL application_name TO 'pgroll'; LOCK TABLE %s.%s IN ACCESS EXCLUSIVE MODE`,
+		s.LockTimeoutMs, appSchema, pq.QuoteIdentifier(table))
+	deadline := time.Now().Add(time.Duration(s.LockBudgetS) * time.Second)
+	for attempt := 0; ; attempt++ {
+		_, err := e.db.ExecContext(ctx, probe)
+		if err == nil {
+			return nil
+		}
+		if !hasCode(err, lockNotAvailable) {
+			return fmt.Errorf("could not lock %s: %w", table, err)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("could not lock %s within %d s; a long-running transaction is holding it", table, s.LockBudgetS)
+		}
+		if err := sleep(ctx, min(100*time.Millisecond<<min(attempt, 5), 2*time.Second)); err != nil {
+			return err
+		}
 	}
-	return nil
 }
 
 // prevalidate validates the NOT VALID constraints the expand phase added, outside the contract transaction.

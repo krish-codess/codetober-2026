@@ -1,0 +1,300 @@
+{
+  "started_at": "2026-10-05T12:10:56.459Z",
+  "steps": [
+    {
+      "at": "2026-10-05T12:10:56.866Z",
+      "step": "v1 is serving traffic on schema version 01_initial",
+      "data": {
+        "v1_sessions": 7
+      }
+    },
+    {
+      "at": "2026-10-05T12:10:56.997Z",
+      "step": "planned 02_amount_to_cents from the schema diff; it matches migrations/02_amount_to_cents.json",
+      "data": "expand   ACCESS EXCLUSIVE       add shadow column for amount: type text -> bigint, add check orders_amount_cents_nonneg\nexpand   ACCESS EXCLUSIVE       add NOT VALID check constraints on the shadow column of amount\nexpand   SHARE ROW EXCLUSIVE    triggers: writes through either schema version fill the other representation of amount\nexpand   none                   expose amount as amount_cents in the new schema version (a view; the table is untouched)\nbackfill ROW EXCLUSIVE          touch all ~99758 rows in primary-key order, in throttled batches\ncontract SHARE UPDATE EXCLUSIVE validate constraints on amount (full scan)\ncontract ACCESS EXCLUSIVE       drop old amount, promote the shadow column, drop triggers\ncontract ACCESS EXCLUSIVE       rename amount to amount_cents"
+    },
+    {
+      "at": "2026-10-05T12:11:13.414Z",
+      "step": "v2 deployed early; the deploy gate holds it back until its schema version is live",
+      "data": {
+        "$schema": "http://127.0.0.1:8088/schemas/CompatCheck.json",
+        "app_version": "v2",
+        "allowed": false,
+        "reason": "no live schema version is compatible with application version v2"
+      }
+    },
+    {
+      "at": "2026-10-05T12:11:27.613Z",
+      "step": "controller killed mid-backfill (docker kill, no cleanup)"
+    },
+    {
+      "at": "2026-10-05T12:11:40.653Z",
+      "step": "replacement controller rolled the half-done migration back",
+      "data": {
+        "state": "reverted",
+        "reason": "controller restarted while expanding; changes rolled back"
+      }
+    },
+    {
+      "at": "2026-10-05T12:11:40.813Z",
+      "step": "planned 02_amount_to_cents from the schema diff; it matches migrations/02_amount_to_cents.json",
+      "data": "expand   ACCESS EXCLUSIVE       add shadow column for amount: type text -> bigint, add check orders_amount_cents_nonneg\nexpand   ACCESS EXCLUSIVE       add NOT VALID check constraints on the shadow column of amount\nexpand   SHARE ROW EXCLUSIVE    triggers: writes through either schema version fill the other representation of amount\nexpand   none                   expose amount as amount_cents in the new schema version (a view; the table is untouched)\nbackfill ROW EXCLUSIVE          touch all ~101607 rows in primary-key order, in throttled batches\ncontract SHARE UPDATE EXCLUSIVE validate constraints on amount (full scan)\ncontract ACCESS EXCLUSIVE       drop old amount, promote the shadow column, drop triggers\ncontract ACCESS EXCLUSIVE       rename amount to amount_cents"
+    },
+    {
+      "at": "2026-10-05T12:13:32.153Z",
+      "step": "expanded: old and new representations coexist and agree",
+      "data": {
+        "ok": true,
+        "at": "2026-10-05T12:13:24.630156242Z",
+        "duration_ms": 6944,
+        "checks": [
+          {
+            "table": "orders",
+            "column": "amount",
+            "rows": 105947,
+            "mismatches": 0,
+            "unbackfilled": 0,
+            "lossy": 1527,
+            "examples": []
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-10-05T12:13:52.494Z",
+      "step": "both application versions are live",
+      "data": {
+        "v1_on_01": 8,
+        "v2_on_02": 8
+      }
+    },
+    {
+      "at": "2026-10-05T12:13:52.570Z",
+      "step": "contract refused while v1 is connected",
+      "data": {
+        "$schema": "http://127.0.0.1:8088/schemas/ErrorModel.json",
+        "title": "Conflict",
+        "status": 409,
+        "detail": "connected application versions cannot run on schema version 02_amount_to_cents; stop them first",
+        "errors": [
+          {
+            "message": "shop v1 on 01_initial (8 sessions)"
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-10-05T12:13:55.802Z",
+      "step": "shop-v1 stopped; what it saw",
+      "data": {
+        "version": "v1",
+        "inserts_acknowledged": 9712,
+        "updates": 3468,
+        "reads": 4447,
+        "rows_checked": 53624,
+        "unreadable_amounts_written": 107,
+        "errors": 0,
+        "retries": 0,
+        "mismatches": 0,
+        "p50_ms": 23.248,
+        "p99_ms": 487.632,
+        "max_ms": 5406.729
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:00.866Z",
+      "step": "verified again, after the last v1 write",
+      "data": {
+        "$schema": "http://127.0.0.1:8088/schemas/Verification.json",
+        "ok": true,
+        "at": "2026-10-05T12:13:55.809911091Z",
+        "duration_ms": 5052,
+        "checks": [
+          {
+            "table": "orders",
+            "column": "amount",
+            "rows": 110048,
+            "mismatches": 0,
+            "unbackfilled": 0,
+            "lossy": 1548,
+            "examples": []
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:07.069Z",
+      "step": "contracted: the old column is gone",
+      "data": {
+        "finished_at": "2026-10-05T12:14:06.975745Z"
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:07.148Z",
+      "step": "planned 03_orders_pending_idx from the schema diff; it matches migrations/03_orders_pending_idx.json",
+      "data": "expand   SHARE UPDATE EXCLUSIVE create index concurrently idx_orders_pending"
+    },
+    {
+      "at": "2026-10-05T12:14:14.497Z",
+      "step": "03 applied; v2 moved to the new schema version without a restart",
+      "data": {
+        "v2_on_03": 5
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:21.114Z",
+      "step": "shop-v2 stopped; what it saw",
+      "data": {
+        "version": "v2",
+        "inserts_acknowledged": 4089,
+        "updates": 1388,
+        "reads": 1866,
+        "rows_checked": 21335,
+        "unreadable_amounts_written": 0,
+        "errors": 0,
+        "retries": 0,
+        "mismatches": 0,
+        "p50_ms": 7.728,
+        "p99_ms": 129.344,
+        "max_ms": 596.851
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:22.269Z",
+      "step": "migration duration by table size",
+      "data": {
+        "$schema": "http://127.0.0.1:8088/schemas/DurationBySize.json",
+        "points": [
+          {
+            "run_id": 1,
+            "name": "01_initial",
+            "state": "completed",
+            "rows": 0,
+            "bytes": 0,
+            "ddl_seconds": 1.495319,
+            "backfill_seconds": 0.019506,
+            "contract_seconds": 2.51159,
+            "rows_per_second": 0,
+            "dual_write_seconds": 0.102784
+          },
+          {
+            "run_id": 3,
+            "name": "02_amount_to_cents",
+            "state": "completed",
+            "rows": 101635,
+            "bytes": 25272320,
+            "ddl_seconds": 0.877329,
+            "backfill_seconds": 101.333424,
+            "contract_seconds": 6.095037,
+            "rows_per_second": 1002.9760762845634,
+            "dual_write_seconds": 36.288685
+          },
+          {
+            "run_id": 4,
+            "name": "03_orders_pending_idx",
+            "state": "completed",
+            "rows": 0,
+            "bytes": 36511744,
+            "ddl_seconds": 0.564145,
+            "backfill_seconds": 0.007893,
+            "contract_seconds": 4.940259,
+            "rows_per_second": 0,
+            "dual_write_seconds": 0.441095
+          }
+        ],
+        "median_rows_per_second": 1002.9760762845633
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:22.269Z",
+      "step": "lock wait time during migration",
+      "data": {
+        "$schema": "http://127.0.0.1:8088/schemas/Lock-waitsResponse.json",
+        "items": [
+          {
+            "run_id": 1,
+            "name": "01_initial",
+            "state": "completed",
+            "samples": 5,
+            "max_blocked": 0,
+            "max_wait_ms": 0,
+            "p95_wait_ms": 0,
+            "blocked_seconds": 0,
+            "migrator_wait_seconds": 0
+          },
+          {
+            "run_id": 2,
+            "name": "02_amount_to_cents",
+            "state": "reverted",
+            "samples": 30,
+            "max_blocked": 0,
+            "max_wait_ms": 0,
+            "p95_wait_ms": 0,
+            "blocked_seconds": 0,
+            "migrator_wait_seconds": 0
+          },
+          {
+            "run_id": 3,
+            "name": "02_amount_to_cents",
+            "state": "completed",
+            "samples": 129,
+            "max_blocked": 0,
+            "max_wait_ms": 0,
+            "p95_wait_ms": 0,
+            "blocked_seconds": 0,
+            "migrator_wait_seconds": 0
+          },
+          {
+            "run_id": 4,
+            "name": "03_orders_pending_idx",
+            "state": "completed",
+            "samples": 2,
+            "max_blocked": 0,
+            "max_wait_ms": 0,
+            "p95_wait_ms": 0,
+            "blocked_seconds": 0,
+            "migrator_wait_seconds": 0
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-10-05T12:14:22.269Z",
+      "step": "SUMMARY",
+      "data": {
+        "writer_errors": 0,
+        "wrong_values_read": 0,
+        "writes_acknowledged": 13801,
+        "rows_cross_checked": 74959,
+        "v1_latency_ms": {
+          "p50": 23.248,
+          "p99": 487.632,
+          "max": 5406.729
+        },
+        "v2_latency_ms": {
+          "p50": 7.728,
+          "p99": 129.344,
+          "max": 596.851
+        },
+        "longest_application_block_ms": 0
+      }
+    }
+  ],
+  "summary": {
+    "writer_errors": 0,
+    "wrong_values_read": 0,
+    "writes_acknowledged": 13801,
+    "rows_cross_checked": 74959,
+    "v1_latency_ms": {
+      "p50": 23.248,
+      "p99": 487.632,
+      "max": 5406.729
+    },
+    "v2_latency_ms": {
+      "p50": 7.728,
+      "p99": 129.344,
+      "max": 596.851
+    },
+    "longest_application_block_ms": 0
+  }
+}

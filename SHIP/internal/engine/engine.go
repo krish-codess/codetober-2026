@@ -322,7 +322,10 @@ func (e *Engine) pgroll(ctx context.Context, lockTimeoutMs int) (*roll.Roll, err
 	if err != nil {
 		return nil, err
 	}
-	m, err := roll.New(ctx, withParam(e.url, "lock_timeout", strconv.Itoa(lockTimeoutMs)), appSchema, st)
+	// The same goes for pgroll.no_inferred_migrations: without it on every connection, pgroll's event trigger would
+	// treat a statement arriving on a second pooled connection as a hand-made change, while that statement holds its lock.
+	dsn := withParam(withParam(e.url, "lock_timeout", strconv.Itoa(lockTimeoutMs)), "pgroll.no_inferred_migrations", "TRUE")
+	m, err := roll.New(ctx, dsn, appSchema, st)
 	if err != nil {
 		st.Close()
 		return nil, err
