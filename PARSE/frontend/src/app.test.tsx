@@ -95,7 +95,8 @@ describe("Label", () => {
     );
     withClient(<Label />);
     expect(screen.getByText(/Loading the labelling queue/)).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "The bed was awful" })).toHaveFocus();
+    const heading = await screen.findByRole("heading", { name: "The bed was awful" });
+    await waitFor(() => expect(heading).toHaveFocus()); // focus moves in an effect, one tick after render
     const boxes = screen.getAllByRole("checkbox");
     expect(boxes.map((b) => (b as HTMLInputElement).checked)).toEqual([true, true, false]);
     expect(screen.getByText(/Model confidence 62%/)).toBeInTheDocument();
@@ -118,7 +119,8 @@ describe("Label", () => {
     await user.keyboard("3");
     expect((screen.getAllByRole("checkbox")[2] as HTMLInputElement).checked).toBe(true);
     await user.keyboard("{Enter}");
-    expect(await screen.findByRole("heading", { name: "second" })).toHaveFocus();
+    const second = await screen.findByRole("heading", { name: "second" });
+    await waitFor(() => expect(second).toHaveFocus());
     const put = calls.find((c) => c.init?.method === "PUT");
     expect(put?.url).toBe("/api/v1/items/10/annotation");
     expect(JSON.parse(String(put?.init?.body)).node_ids.sort()).toEqual([1, 2, 3]);

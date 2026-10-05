@@ -72,11 +72,15 @@ export function Label() {
   const setSelected = (fn: (s: Set<number>) => Set<number>) =>
     currentId != null && setEdit({ id: currentId, set: fn(selected) });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: move focus only when the item changes
+  // Move focus to the new item's text - but only once it is really on screen. The queue can
+  // arrive before the taxonomy, in which case the loading placeholder is still rendered when the
+  // item id first changes and there is no heading to focus yet.
+  const rendered = currentId != null && !taxonomy.isPending;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: move focus only when the item changes or first appears
   useEffect(() => {
     setSearch("");
     headingRef.current?.focus();
-  }, [currentId]);
+  }, [currentId, rendered]);
 
   const save = useMutation({
     mutationFn: ({ id, nodes }: { id: number; nodes: number[] }) =>

@@ -1,6 +1,6 @@
 # Data dictionary
 
-PostgreSQL 16. Source of truth: `backend/migrations/versions/0001_initial.py`. All timestamps are
+PostgreSQL 16. Source of truth: `backend/migrations/versions/` (`0001` creates everything; `0002` drops two indexes). All timestamps are
 `timestamptz` stored in UTC. "Null?" means the column may be NULL and what NULL means.
 
 ## Lineage
@@ -158,6 +158,9 @@ Triggers: inserting a label inserts its parent's label (recursively); deleting a
 | created_at | timestamptz | no | |
 
 ## predictions — current suggestions for unlabelled pool items
+
+A row exists only while its item is unlabelled: annotating an item deletes its row, which is what
+lets the queue be a plain walk of `predictions_queue (priority DESC, feedback_id)`.
 
 | Column | Type | Null? | Meaning |
 |---|---|---|---|
