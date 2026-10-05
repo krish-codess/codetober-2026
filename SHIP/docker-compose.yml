@@ -1,0 +1,145 @@
+name: ship
+
+x-ship: &ship
+  image: ship:local
+  build: .
+  restart: unless-stopped
+
+x-urls:
+  admin: &admin postgres://postgres:${POSTGRES_PASSWORD:?copy .env.example to .env}@db:5432/shop?sslmode=disable
+  migrator: &migrator postgres://ship_migrator:${MIGRATOR_PASSWORD}@db:5432/shop?sslmode=disable
+  app: &app postgres://shop_app:${APP_PASSWORD}@db:5432/shop?sslmode=disable
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: shop
+    # log_lock_waits: any wait longer than deadlock_timeout is logged, an independent record of what the guard reports.
+    command: postgres -c max_connections=200 -c shared_buffers=256MB -c log_lock_waits=on -c deadlock_timeout=500ms
+    ports: ["127.0.0.1:${DB_PORT:-5544}:5432"]
+    volumes: [dbdata:/var/lib/postgresql/data]
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d shop"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-time setup as superuser: roles, grants, pgroll state. Idempotent.
+  init:
+    <<: *ship
+    restart: "no"
+    command: ["init"]
+    environment: { ADMIN_DATABASE_URL: *admin, DATABASE_URL: *migrator, APP_DATABASE_URL: *app }
+    depends_on: { db: { condition: service_healthy } }
+
+  # The first schema version, applied through the same engine as every later migration.
+  migrate:
+    <<: *ship
+    restart: "no"
+    command: ["apply", "/migrations/01_initial.json", "--complete"]
+    environment: { DATABASE_URL: *migrator, LOG_LEVEL: warn }
+    depends_on: { init: { condition: service_completed_successfully } }
+
+  # Generates the raw feed once (kept, read-only, in the rawdata volume) and loads it. Both steps are idempotent.
+  seed:
+    <<: *ship
+    restart: "no"
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        shop generate --seed 42 --orders ${SEED_ORDERS:-1000000} --out /data/raw/orders-seed42-${SEED_ORDERS:-1000000}.ndjson &&
+        (shop ingest /data/raw/orders-seed42-${SEED_ORDERS:-1000000}.ndjson ||
+        echo 'seed skipped: no live schema version takes the v1 feed loader any more')
+    environment: { APP_DATABASE_URL: *app, APP_VERSION: v1, WAIT_SCHEMA_TIMEOUT_S: 30 }
+    volumes: [rawdata:/data/raw]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  shipd:
+    <<: *ship
+    environment:
+      DATABASE_URL: *migrator
+      SHIPD_OPERATOR_TOKEN: ${SHIPD_OPERATOR_TOKEN}
+      SHIPD_VIEWER_TOKEN: ${SHIPD_VIEWER_TOKEN}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports: ["127.0.0.1:${SHIPD_PORT:-8088}:8080"]
+    depends_on: { seed: { condition: service_completed_successfully } }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # The old application version: writes orders.amount as text.
+  shop-v1:
+    <<: *ship
+    entrypoint: ["shop"]
+    command: ["run"]
+    environment: { APP_DATABASE_URL: *app, APP_VERSION: v1, WORKERS: "${WORKERS:-8}", RATE: "${RATE:-25}" }
+    depends_on: { shipd: { condition: service_healthy } }
+    healthcheck: &shophealth
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # The new application version: writes orders.amount_cents. Started by the operator once migration 02 is under way
+  # (`docker compose --profile v2 up -d shop-v2`); it waits until its schema version is live.
+  shop-v2:
+    <<: *ship
+    profiles: [v2]
+    entrypoint: ["shop"]
+    command: ["run"]
+    environment: { APP_DATABASE_URL: *app, APP_VERSION: v2, WORKERS: "${WORKERS:-8}", RATE: "${RATE:-25}", WAIT_SCHEMA_TIMEOUT_S: 3600 }
+    depends_on: { shipd: { condition: service_healthy } }
+    healthcheck: *shophealth
+
+  web:
+    image: ship-web:local
+    build: web
+    restart: unless-stopped
+    ports: ["127.0.0.1:${WEB_PORT:-8089}:8080"]
+    depends_on: { shipd: { condition: service_healthy } }
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=2d"]
+    volumes:
+      - ./deploy/prometheus/prometheus.compose.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:${PROMETHEUS_PORT:-9099}:9090"]
+    depends_on: { shipd: { condition: service_healthy } }
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/ship.json:/var/lib/grafana/dashboards/ship.json:ro
+    ports: ["127.0.0.1:${GRAFANA_PORT:-3099}:3000"]
+    depends_on: [prometheus]
+
+  # Lint and the full suite, integration tests included, against the db service:
+  #   docker compose --profile test run --rm test
+  # Each test creates its own database and its own roles, so it does not disturb the running stack.
+  test:
+    profiles: [test]
+    image: golang:1.27
+    working_dir: /src
+    volumes: [".:/src", "gomod:/go/pkg/mod", "gobuild:/root/.cache/go-build"]
+    environment: { TEST_ADMIN_DATABASE_URL: *admin, REQUIRE_DB: "1" }
+    command: ["sh", "-c", "test -z \"$$(gofmt -l .)\" && go vet ./... && go test -race -p 1 -count=1 ./..."]
+    depends_on: { db: { condition: service_healthy } }
+
+volumes:
+  dbdata:
+  rawdata:
+  gomod:
+  gobuild:

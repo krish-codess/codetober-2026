@@ -1,0 +1,8 @@
+.git
+.env
+web
+docs
+data
+deploy
+scripts
+**/node_modules
