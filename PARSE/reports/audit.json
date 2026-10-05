@@ -1,0 +1,61 @@
+{
+ "experiment": "audit",
+ "generated_at": "2026-10-05T08:39:55Z",
+ "feed": {
+  "lines": 56685,
+  "quarantined": {
+   "malformed_json": 23,
+   "bad_encoding": 19,
+   "bad_timestamp": 50,
+   "too_long": 29,
+   "missing_text": 29,
+   "empty_text": 33
+  },
+  "pool_after_dedupe": 10733,
+  "test": 45528
+ },
+ "leakage": {
+  "groups_in_both_splits": 0,
+  "exact_texts_in_both_splits_after_guard": 0,
+  "duplicate_texts_within_pool": 0,
+  "features_available_at_prediction_time": "text only -> embedding; no label-derived or post-hoc field is used",
+  "unsupervised_statistics_from_unlabelled_pool": [
+   "feature mean (mu)"
+  ],
+  "threshold_and_calibration_source": "out-of-fold predictions on labelled pool items",
+  "hyperparameter_source": "pool hold-out (reports/hyperparams.json)"
+ },
+ "throughput": {
+  "train_seconds_by_n_labels": {
+   "300": {
+    "fit_s": 0.36,
+    "fit_calibrated_s": 2.67
+   },
+   "1000": {
+    "fit_s": 1.4,
+    "fit_calibrated_s": 3.74
+   },
+   "3000": {
+    "fit_s": 3.04,
+    "fit_calibrated_s": 8.89
+   },
+   "10733": {
+    "fit_s": 9.48,
+    "fit_calibrated_s": 53.34
+   }
+  },
+  "classifier_inference_items_per_s": 18493,
+  "pool_uncertainty_scoring_items_per_s": 24363,
+  "note": "embedding throughput is measured by the pipeline (docs/PERFORMANCE.md)"
+ },
+ "labels": {
+  "mean_nodes_per_item": 3.116742755986211,
+  "nodes": 241,
+  "nodes_by_depth": {
+   "1": 7,
+   "2": 68,
+   "3": 166
+  },
+  "median_pool_support_per_node": 41
+ }
+}

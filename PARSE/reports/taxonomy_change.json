@@ -1,0 +1,42 @@
+{
+ "experiment": "taxonomy_change",
+ "generated_at": "2026-10-04T17:09:12Z",
+ "split_node": "hotel/rooms",
+ "new_children": [
+  "hotel/rooms/cleanliness",
+  "hotel/rooms/comfort",
+  "hotel/rooms/design_features",
+  "hotel/rooms/general",
+  "hotel/rooms/prices",
+  "hotel/rooms/quality"
+ ],
+ "n_labels_before_change": 1500,
+ "items_flagged_for_review": 40,
+ "targeted_equals_full_relabel": true,
+ "policies": {
+  "keep old labels, relabel nothing": {
+   "relabelled": 0,
+   "labels_kept": 1500,
+   "hf1": 0.5554742074153681,
+   "f1_new_children": 0.0
+  },
+  "targeted relabel (this system)": {
+   "relabelled": 40,
+   "labels_kept": 1500,
+   "hf1": 0.5563225005604312,
+   "f1_new_children": 0.2930513595166163
+  },
+  "relabel everything": {
+   "relabelled": 1500,
+   "labels_kept": 1500,
+   "hf1": 0.5563225005604312,
+   "f1_new_children": 0.2930513595166163
+  },
+  "discard labels, spend the targeted budget on new items": {
+   "relabelled": 40,
+   "labels_kept": 0,
+   "hf1": 0.27121556764646165,
+   "f1_new_children": 0.0035650623885918
+  }
+ }
+}

@@ -1,0 +1,30 @@
+Index: labels_node
+Serves: Taxonomy operations and per-node lookups: every label on one node (merge/split/retire).
+
+Query:
+SELECT feedback_id FROM labels WHERE node_id = :node
+Parameters: {'node': 175}
+Table sizes (rows): {alembic_version: 1, annotations: 45828, api_tokens: 3, embeddings: 56372, feedback: 56372, ingest_batches: 1, jobs: 2, labels: 157823, model_versions: 7, node_metrics: 21749, predictions: 10433, quarantine: 313, raw_feedback: 56685, split_groups: 14593, taxonomy_nodes: 241, taxonomy_versions: 1}
+
+--- WITH the index ---
+Bitmap Heap Scan on labels  (cost=5.12..303.78 rows=106 width=8) (actual time=0.992..1.048 rows=48 loops=1)
+  Recheck Cond: (node_id = '175'::smallint)
+  Heap Blocks: exact=42
+  Buffers: shared hit=45 read=2
+  ->  Bitmap Index Scan on labels_node  (cost=0.00..5.09 rows=106 width=0) (actual time=0.979..0.979 rows=48 loops=1)
+        Index Cond: (node_id = '175'::smallint)
+        Buffers: shared hit=3 read=2
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.095 ms
+Execution Time: 1.091 ms
+
+--- WITHOUT the index (dropped inside a rolled-back transaction) ---
+Seq Scan on labels  (cost=0.00..2826.79 rows=106 width=8) (actual time=4.628..8.103 rows=48 loops=1)
+  Filter: (node_id = '175'::smallint)
+  Rows Removed by Filter: 157775
+  Buffers: shared hit=854
+Planning:
+  Buffers: shared hit=5
+Planning Time: 0.143 ms
+Execution Time: 8.123 ms

@@ -1,0 +1,39 @@
+Index: labels_review
+Serves: Targeted-relabel queue: items with a flagged label (GET /queue?mode=review).
+
+Query:
+SELECT DISTINCT feedback_id FROM labels WHERE review_reason IS NOT NULL AND feedback_id > 0 ORDER BY 1 LIMIT 20
+Parameters: {}
+Table sizes (rows): {alembic_version: 1, annotations: 45828, api_tokens: 3, embeddings: 56372, feedback: 56372, ingest_batches: 1, jobs: 2, labels: 157823, model_versions: 7, node_metrics: 21749, predictions: 10433, quarantine: 313, raw_feedback: 56685, split_groups: 14593, taxonomy_nodes: 241, taxonomy_versions: 1}
+
+--- WITH the index ---
+Limit  (cost=0.12..4.26 rows=1 width=8) (actual time=0.061..0.062 rows=0 loops=1)
+  Buffers: shared hit=5
+  ->  Unique  (cost=0.12..4.26 rows=1 width=8) (actual time=0.060..0.060 rows=0 loops=1)
+        Buffers: shared hit=5
+        ->  Index Only Scan using labels_review on labels  (cost=0.12..4.26 rows=1 width=8) (actual time=0.059..0.060 rows=0 loops=1)
+              Index Cond: (feedback_id > 0)
+              Heap Fetches: 0
+              Buffers: shared hit=5
+Planning:
+  Buffers: shared hit=25 read=3
+Planning Time: 2.590 ms
+Execution Time: 0.096 ms
+
+--- WITHOUT the index (dropped inside a rolled-back transaction) ---
+Limit  (cost=2826.80..2826.81 rows=1 width=8) (actual time=7.328..7.330 rows=0 loops=1)
+  Buffers: shared hit=854
+  ->  Unique  (cost=2826.80..2826.81 rows=1 width=8) (actual time=7.326..7.328 rows=0 loops=1)
+        Buffers: shared hit=854
+        ->  Sort  (cost=2826.80..2826.80 rows=1 width=8) (actual time=7.325..7.327 rows=0 loops=1)
+              Sort Key: feedback_id
+              Sort Method: quicksort  Memory: 25kB
+              Buffers: shared hit=854
+              ->  Seq Scan on labels  (cost=0.00..2826.79 rows=1 width=8) (actual time=7.312..7.313 rows=0 loops=1)
+                    Filter: ((review_reason IS NOT NULL) AND (feedback_id > 0))
+                    Rows Removed by Filter: 157823
+                    Buffers: shared hit=854
+Planning:
+  Buffers: shared hit=9
+Planning Time: 0.238 ms
+Execution Time: 7.382 ms

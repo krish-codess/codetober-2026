@@ -1,0 +1,26 @@
+Index: feedback_text_sha256
+Serves: Duplicate detection at ingest and the pool/test leakage guard: rows sharing a text hash.
+
+Query:
+SELECT id, split FROM feedback WHERE text_sha256 = :sha
+Parameters: {'sha': 'a6da4e9dcfe460f7a640b6a0d666621fa0ad7bd7859e2abcff8b71cf915f6ef6'}
+Table sizes (rows): {alembic_version: 1, annotations: 45828, api_tokens: 3, embeddings: 56372, feedback: 56372, ingest_batches: 1, jobs: 2, labels: 157823, model_versions: 7, node_metrics: 21749, predictions: 10433, quarantine: 313, raw_feedback: 56685, split_groups: 14593, taxonomy_nodes: 241, taxonomy_versions: 1}
+
+--- WITH the index ---
+Index Scan using feedback_text_sha256 on feedback  (cost=0.41..8.43 rows=1 width=13) (actual time=2.791..2.796 rows=1 loops=1)
+  Index Cond: (text_sha256 = 'a6da4e9dcfe460f7a640b6a0d666621fa0ad7bd7859e2abcff8b71cf915f6ef6'::bpchar)
+  Buffers: shared hit=1 read=3
+Planning:
+  Buffers: shared hit=5
+Planning Time: 0.148 ms
+Execution Time: 2.884 ms
+
+--- WITHOUT the index (dropped inside a rolled-back transaction) ---
+Seq Scan on feedback  (cost=0.00..3022.65 rows=1 width=13) (actual time=0.082..9.020 rows=1 loops=1)
+  Filter: (text_sha256 = 'a6da4e9dcfe460f7a640b6a0d666621fa0ad7bd7859e2abcff8b71cf915f6ef6'::bpchar)
+  Rows Removed by Filter: 56371
+  Buffers: shared hit=2318
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.127 ms
+Execution Time: 9.038 ms
