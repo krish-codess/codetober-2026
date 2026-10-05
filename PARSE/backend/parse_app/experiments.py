@@ -403,7 +403,7 @@ def audit() -> None:
     m.decode(m.marginals(c.test.x[:10000]))
     infer = time.perf_counter() - t
     t = time.perf_counter()
-    m.entropy(c.pool.x)
+    m.uncertainty(c.pool.x)
     ent = time.perf_counter() - t
     save("audit", {
         "feed": {"lines": lines, "quarantined": reasons, "pool_after_dedupe": len(c.pool), "test": len(c.test)},
@@ -419,7 +419,7 @@ def audit() -> None:
         "throughput": {
             "train_seconds_by_n_labels": timings,
             "classifier_inference_items_per_s": round(10000 / infer),
-            "pool_entropy_scoring_items_per_s": round(len(c.pool) / ent),
+            "pool_uncertainty_scoring_items_per_s": round(len(c.pool) / ent),
             "note": "embedding throughput is measured by the pipeline (docs/PERFORMANCE.md)",
         },
         "labels": {"mean_nodes_per_item": float(c.pool.y.sum(1).mean()), "nodes": len(c.tree),

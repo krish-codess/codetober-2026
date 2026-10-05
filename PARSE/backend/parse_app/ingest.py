@@ -225,10 +225,10 @@ def ingest_file(
         version = current_version(conn)
         # ponytail: whole-table dedupe maps in memory (fine to ~1M rows). Beyond that, COPY the
         # batch into a temp table and resolve duplicates with a join against feedback.
-        seen = {
-            (r.source, r.external_id): r.text_sha256
-            for r in conn.execute(text("SELECT source, external_id, text_sha256 FROM feedback"))
-        }
+        existing = conn.execute(
+            text("SELECT id, source, external_id, text_sha256, split, duplicate_of FROM feedback ORDER BY id")
+        ).all()
+        seen = {(r.source, r.external_id): r.text_sha256 for r in existing}
         groups = {r.group_key: r.split for r in conn.execute(text("SELECT group_key, split FROM split_groups"))}
         watermark = {
             r.source: r.wm
@@ -312,52 +312,58 @@ def ingest_file(
             accepted,
         )  # fmt: skip
 
+        ids = dict(
+            conn.execute(text("SELECT line_no, id FROM feedback WHERE batch_id = :b"), {"b": batch_id}).tuples().all()
+        )
+
         # Reference labels for the evaluation split. Pool gold stays in the raw payload, where
         # only the simulated annotator reads it.
         gold_unmapped = 0
-        if gold_by_line:
-            ids = dict(
-                conn.execute(text("SELECT line_no, id FROM feedback WHERE batch_id = :b"), {"b": batch_id})
-                .tuples()
-                .all()
+        ann: list[dict[str, Any]] = []
+        lab: list[dict[str, Any]] = []
+        for line_no, gold in gold_by_line.items():
+            nodes, unmapped = gold_paths(gold, known)
+            gold_unmapped += unmapped
+            ann.append(
+                {"feedback_id": ids[line_no], "annotator": "gold", "source": "gold", "taxonomy_version": version}
             )
-            ann: list[dict[str, Any]] = []
-            lab: list[dict[str, Any]] = []
-            for line_no, gold in gold_by_line.items():
-                nodes, unmapped = gold_paths(gold, known)
-                gold_unmapped += unmapped
-                ann.append(
-                    {"feedback_id": ids[line_no], "annotator": "gold", "source": "gold", "taxonomy_version": version}
-                )
-                lab.extend({"feedback_id": ids[line_no], "node_id": n} for n in nodes)
-            bulk_insert(
-                conn, "annotations",
-                {"feedback_id": "bigint", "annotator": "text", "source": "text", "taxonomy_version": "int"}, ann,
-            )  # fmt: skip
-            bulk_insert(conn, "labels", {"feedback_id": "bigint", "node_id": "int"}, lab, "ON CONFLICT DO NOTHING")
+            lab.extend({"feedback_id": ids[line_no], "node_id": n} for n in nodes)
+        bulk_insert(
+            conn, "annotations",
+            {"feedback_id": "bigint", "annotator": "text", "source": "text", "taxonomy_version": "int"}, ann,
+        )  # fmt: skip
+        bulk_insert(conn, "labels", {"feedback_id": "bigint", "node_id": "int"}, lab, "ON CONFLICT DO NOTHING")
 
-        # Same text submitted under a new id (double submit): keep the row, point it at the
-        # first occurrence, and keep it out of the labelling queue.
-        n_dupes = conn.execute(
-            text(
-                """UPDATE feedback f SET duplicate_of = first.id
-                   FROM (SELECT text_sha256, split, min(id) AS id FROM feedback
-                         WHERE split = 'pool' GROUP BY text_sha256, split) first
-                   WHERE f.batch_id = :b AND f.split = 'pool' AND f.text_sha256 = first.text_sha256
-                     AND f.id <> first.id AND f.duplicate_of IS NULL"""
-            ),
-            {"b": batch_id},
-        ).rowcount
-
-        # Leakage guard: a pool row whose text also exists in the evaluation split must never be
-        # trained on (or waste an annotator's time). Same mechanism, pointing at the test row.
-        n_leaks = conn.execute(
-            text(
-                """UPDATE feedback f SET duplicate_of = t.id
-                   FROM (SELECT text_sha256, min(id) AS id FROM feedback WHERE split = 'test' GROUP BY text_sha256) t
-                   WHERE f.split = 'pool' AND f.text_sha256 = t.text_sha256 AND f.duplicate_of IS NULL"""
+        # Duplicate texts, resolved here rather than in SQL: the hashes are already in memory, and
+        # a set-based UPDATE joining feedback to itself was planned as a nested loop because rows
+        # inserted in this transaction have no statistics yet (14+ minutes on 56k rows; this is 1 s).
+        #  * same text under a new id in the pool (double submit) -> points at the first occurrence
+        #  * pool text that also exists in the evaluation split   -> points at the test row
+        # Either way the row is kept but is never queued or trained on (leakage guard).
+        rows = [(r.id, r.text_sha256, r.split, r.duplicate_of is not None) for r in existing]
+        rows += [(ids[a["line_no"]], a["text_sha256"], a["split"], False) for a in accepted]
+        first: dict[tuple[str, str], int] = {}
+        for fid, sha, split, _ in rows:  # ascending id within existing, then feed order
+            first.setdefault((split, sha), fid)
+        dup_updates: list[dict[str, int]] = []
+        n_dupes = n_leaks = 0
+        for fid, sha, split, already in rows:
+            if split != "pool" or already:
+                continue
+            if ("test", sha) in first:
+                n_leaks += 1
+                dup_updates.append({"id": fid, "dup": first[("test", sha)]})
+            elif first[("pool", sha)] != fid:
+                n_dupes += 1
+                dup_updates.append({"id": fid, "dup": first[("pool", sha)]})
+        if dup_updates:
+            conn.execute(
+                text(
+                    """UPDATE feedback f SET duplicate_of = v.dup
+                       FROM unnest(CAST(:ids AS bigint[]), CAST(:dups AS bigint[])) AS v(id, dup) WHERE f.id = v.id"""
+                ),
+                {"ids": [u["id"] for u in dup_updates], "dups": [u["dup"] for u in dup_updates]},
             )
-        ).rowcount
 
         stats = {
             "n_records": len(raw_rows), "n_accepted": len(accepted), "n_quarantined": len(quarantined),

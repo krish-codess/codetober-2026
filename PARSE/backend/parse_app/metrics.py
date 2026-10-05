@@ -98,3 +98,46 @@ def bootstrap_hf1(
         stats.append(prf(tp[s].sum(), fp[s].sum(), fn[s].sum())[2])
     lo, hi = np.percentile(stats, [2.5, 97.5])
     return float(lo), float(hi)
+
+
+def routing_tables(p: Floats, y_true: Bools, roots: Bools, thresholds: tuple[float, ...]) -> dict[str, Any]:
+    """What an automatic-routing threshold buys, at the two granularities where it is usable.
+
+    labels: accept every (item, node) assignment whose probability is >= t. How many of those
+            assignments are right (precision), and what share of all true labels that captures.
+    domain: route an item to its most probable top-level node when that probability is >= t.
+            How many items that covers, and how often the routed domain is a true one.
+    Whole-label-set confidence is reported separately; on a deep multi-label taxonomy it is
+    calibrated but rarely high, so these two are the thresholds an operator can act on.
+    """
+    live = p >= 0.01  # ignore the ocean of trivially-zero pairs when measuring calibration
+    top = p[:, roots].argmax(axis=1)
+    top_p = p[:, roots].max(axis=1)
+    top_ok = y_true[:, roots][np.arange(len(p)), top] if len(p) else np.zeros(0, dtype=bool)
+    labels, domain = [], []
+    for t in thresholds:
+        sel = p >= t
+        n = int(sel.sum())
+        labels.append(
+            {
+                "threshold": t,
+                "n": n,
+                "precision": float(y_true[sel].mean()) if n else None,
+                "recall": float((sel & y_true).sum() / max(y_true.sum(), 1)),
+            }
+        )
+        item = top_p >= t
+        domain.append(
+            {
+                "threshold": t,
+                "coverage": float(item.mean()) if len(p) else 0.0,
+                "accuracy": float(top_ok[item].mean()) if item.any() else None,
+                "n": int(item.sum()),
+            }
+        )
+    return {
+        "ece_label": ece(p[live], y_true[live]),
+        "ece_domain": ece(top_p, top_ok),
+        "label_routing": labels,
+        "domain_routing": domain,
+    }

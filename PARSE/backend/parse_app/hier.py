@@ -91,22 +91,32 @@ class HierModel:
         """Calibrated probability that the decoded label set is exactly right."""
         return _sigmoid(_logit(self.raw_confidence(p)) * self.conf_a + self.conf_b)
 
+    def _reach(self, c: Floats) -> Floats:
+        """P(parent) for every node (1 for roots): how much a node's decision matters for an item."""
+        reach = np.ones_like(c)
+        if self.hierarchical:
+            parent = self.tree.parent
+            marg = c.copy()
+            for j in range(len(self.tree)):
+                if parent[j] >= 0:
+                    reach[:, j] = marg[:, parent[j]]
+                    marg[:, j] *= marg[:, parent[j]]
+        return reach
+
+    def uncertainty(self, x: NDArray[Any]) -> Floats:
+        """Selection score in [0, 1]: the least certain reachable node decision,
+        max_j P(parent_j) * (1 - |2 P(j | parent_j) - 1|). A max, not a sum, so an item is not
+        "more uncertain" merely for sitting under a node with many children."""
+        c = self.conditional(x)
+        score: Floats = (self._reach(c) * (1 - np.abs(2 * c - 1))).max(axis=1)
+        return score
+
     def entropy(self, x: NDArray[Any]) -> Floats:
         """Entropy (nats) of the tree-factorised joint: sum_j P(parent_j) * H(P(j | parent_j)).
-        A node only contributes uncertainty to the extent its parent is believed to apply."""
+        Principled, and a poor selection score: see active.py and reports/label_efficiency.json."""
         c = np.clip(self.conditional(x), EPS, 1 - EPS)
         h = -(c * np.log(c) + (1 - c) * np.log(1 - c))
-        if not self.hierarchical:
-            flat: Floats = h.sum(axis=1)
-            return flat
-        reach = np.ones_like(c)
-        parent = self.tree.parent
-        marg = c.copy()
-        for j in range(len(self.tree)):
-            if parent[j] >= 0:
-                reach[:, j] = marg[:, parent[j]]
-                marg[:, j] *= marg[:, parent[j]]
-        total: Floats = (reach * h).sum(axis=1)
+        total: Floats = (self._reach(c) * h).sum(axis=1)
         return total
 
     # --- artifact: plain arrays in an .npz, never pickle -----------------------------------

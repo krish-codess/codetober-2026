@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from parse_app import metrics as M
-from parse_app.active import diverse_top, select
+from parse_app.active import STRATEGIES, diverse_top, mixed_order, select
 from parse_app.embed import HashEmbedder
 from parse_app.feed import inject_defects, parse_mabsa_line, synthetic_records
 from parse_app.fetch import FetchError, download
@@ -156,20 +156,23 @@ def test_inference_contract_and_artifact_roundtrip() -> None:
 # --- active learning -------------------------------------------------------------------------------
 
 
-def test_entropy_prefers_ambiguous_items_and_selection_respects_candidates() -> None:
+def test_uncertainty_prefers_ambiguous_items_and_selection_respects_candidates() -> None:
     x, y, t = toy_problem()
     model = fit(x[:300], y[:300], t)
     clear = x[300:400]
     ambiguous = (x[300:400] + x[400:500][::-1]) / 2  # blends of two different items
+    assert model.uncertainty(ambiguous).mean() > model.uncertainty(clear).mean()
     assert model.entropy(ambiguous).mean() > model.entropy(clear).mean()
+    u = model.uncertainty(x)
+    assert ((u >= 0) & (u <= 1)).all()
 
     rng = np.random.default_rng(0)
     candidates = np.arange(300, 600)
-    for strategy in ("random", "entropy", "entropy_diverse"):
+    for strategy in STRATEGIES:
         picked = select(strategy, model, x, candidates, 25, rng)
         assert len(picked) == len(set(picked.tolist())) == 25
         assert set(picked.tolist()) <= set(candidates.tolist())
-    assert len(select("entropy", None, x, candidates, 10, rng)) == 10  # cold start falls back to random
+    assert len(select("mixed", None, x, candidates, 10, rng)) == 10  # cold start falls back to random
     with pytest.raises(ValueError, match="unknown strategy"):
         select("nope", model, x, candidates, 5, rng)
 
@@ -184,6 +187,34 @@ def test_diverse_top_does_not_spend_the_batch_on_near_duplicates() -> None:
     top_plain = np.argsort(-scores)[:6]
     assert len({i // 20 for i in top_plain}) == 1
     assert len({int(i) // 20 for i in diverse_top(x, scores, 6, seed=0)}) >= 4
+
+
+def test_summed_entropy_rewards_wide_branches_but_uncertainty_does_not() -> None:
+    """The bug that made the first active-learning strategy lose to random, pinned down:
+    under a parent with many undecided children, summed entropy grows with the number of
+    children while the max-based score does not."""
+
+    def model_with(n_children: int) -> HierModel:
+        t = Tree.from_edges([(0, None)] + [(i, 0) for i in range(1, n_children + 1)])
+        return HierModel(
+            tree=t, mu=np.zeros(4), w=np.zeros((len(t), 4)), b=np.zeros(len(t)), trained=np.ones(len(t), dtype=bool)
+        )
+
+    x = np.zeros((1, 4))
+    narrow, wide = model_with(2), model_with(40)
+    assert wide.entropy(x)[0] > 5 * narrow.entropy(x)[0]
+    assert wide.uncertainty(x)[0] == pytest.approx(narrow.uncertainty(x)[0])
+
+
+def test_mixed_order_is_half_uncertain_half_random_without_repeats() -> None:
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(400, 8))
+    scores = np.linspace(0, 1, 400)
+    order = mixed_order(x, scores, 40, rng)
+    assert len(set(order.tolist())) == 40
+    assert scores[order[0::2]].min() > 0.6  # uncertain half comes from the top of the ranking
+    assert scores[order[1::2]].mean() < 0.7  # random half does not
+    assert len(mixed_order(x[:5], scores[:5], 40, rng)) == 5
 
 
 # --- metrics ---------------------------------------------------------------------------------------

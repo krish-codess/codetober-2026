@@ -13,7 +13,7 @@ import numpy as np
 from sqlalchemy import Engine, text
 
 from . import metrics as M
-from .active import diverse_top
+from .active import mixed_order
 from .config import Settings
 from .db import bulk_insert
 from .hier import HierModel, fit_calibrated
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 MIN_LABELS = 30
 PARAMS = {"c": 30.0, "folds": 4, "seed": 0}  # c chosen on a pool hold-out: reports/hyperparams.json
-QUEUE_DIVERSE = 200  # how many queue slots get the diversified ordering
+QUEUE_HEAD = 200  # how many queue slots get the mixed (uncertain + random) ordering
 CANDIDATE_FLOOR = 0.05  # nodes below this probability are not stored as suggestions
 MAX_CANDIDATES = 12
 ROUTING_THRESHOLDS = (0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
@@ -59,6 +59,7 @@ def evaluate(model: HierModel, x: Any, y: Bools, lang: list[str], group: list[st
              "n": int((conf >= t).sum())}
             for t in ROUTING_THRESHOLDS
         ],
+        **M.routing_tables(p, y, tree.depth == 1, ROUTING_THRESHOLDS),
     }  # fmt: skip
     return out, pred
 
@@ -167,12 +168,13 @@ def _write_node_metrics(conn: Any, model_id: int, tree: Tree, y: Bools, pred: Bo
 def prediction_rows(model: HierModel, model_id: int, ids: list[int], x: Any) -> list[dict[str, Any]]:
     p = model.marginals(x)
     conf = model.confidence(p)
-    ent = model.entropy(x)
-    # Queue order: the first QUEUE_DIVERSE slots are one-per-cluster among the most uncertain
-    # items (priority in (1, 2]); everything else falls back to plain uncertainty (priority in [0, 1]).
-    priority = ent / (ent.max() + 1e-9) if len(ent) else ent
-    for rank, pos in enumerate(diverse_top(x, ent, QUEUE_DIVERSE, seed=0)):
-        priority[pos] = 2.0 - rank / QUEUE_DIVERSE
+    ent = model.uncertainty(x)
+    # Queue order ("mixed" strategy): the first QUEUE_HEAD slots interleave one-per-cluster picks
+    # among the most uncertain items with uniformly random ones (priority in (1, 2]); everything
+    # else falls back to plain uncertainty (priority in [0, 1]).
+    priority = ent.copy()
+    for rank, pos in enumerate(mixed_order(x, ent, QUEUE_HEAD, np.random.default_rng(model_id))):
+        priority[pos] = 2.0 - rank / QUEUE_HEAD
     rows = []
     for i, fid in enumerate(ids):
         top = np.argsort(-p[i], kind="stable")[:MAX_CANDIDATES]
