@@ -149,28 +149,89 @@ export function Performance() {
         <section aria-labelledby="h-cal">
           <h2 id="h-cal">Confidence and automatic routing</h2>
           <p className="muted">
-            If every item at or above a confidence threshold were accepted without review. Calibration error{" "}
-            {m.calibration.ece_item?.toFixed(3)} (uncalibrated {m.calibration.ece_item_uncalibrated?.toFixed(3)}).
+            What accepting predictions without review would give at each threshold. With calibrated probabilities the
+            share correct in a row is at least its threshold.
           </p>
-          <div className="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Confidence ≥</th>
-                  <th scope="col">Share auto-routed</th>
-                  <th scope="col">Of those, fully correct</th>
-                </tr>
-              </thead>
-              <tbody>
-                {m.calibration.routing.map((r) => (
-                  <tr key={r.threshold}>
-                    <th scope="row">{pct(r.threshold)}</th>
-                    <td>{pct(r.coverage, 1)}</td>
-                    <td>{r.n === 0 ? "no items" : pct(r.exact_match, 1)}</td>
+          <div className="routing">
+            {m.calibration.domain_routing && (
+              <div className="scroll">
+                <table>
+                  <caption>
+                    Route by top-level domain{" "}
+                    <span className="muted">(calibration error {m.calibration.ece_domain?.toFixed(3)})</span>
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Probability ≥</th>
+                      <th scope="col">Items routed</th>
+                      <th scope="col">Routed correctly</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.calibration.domain_routing.map((r) => (
+                      <tr key={r.threshold}>
+                        <th scope="row">{pct(r.threshold)}</th>
+                        <td>{pct(r.coverage, 1)}</td>
+                        <td>{r.n === 0 ? "no items" : pct(r.accuracy, 1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {m.calibration.label_routing && (
+              <div className="scroll">
+                <table>
+                  <caption>
+                    Accept individual labels{" "}
+                    <span className="muted">(calibration error {m.calibration.ece_label?.toFixed(3)})</span>
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Probability ≥</th>
+                      <th scope="col">Labels correct</th>
+                      <th scope="col">Share of true labels found</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.calibration.label_routing.map((r) => (
+                      <tr key={r.threshold}>
+                        <th scope="row">{pct(r.threshold)}</th>
+                        <td>{r.n === 0 ? "no labels" : pct(r.precision, 1)}</td>
+                        <td>{pct(r.recall, 1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="scroll">
+              <table>
+                <caption>
+                  Accept the whole label set{" "}
+                  <span className="muted">
+                    (calibration error {m.calibration.ece_item?.toFixed(3)}, uncalibrated{" "}
+                    {m.calibration.ece_item_uncalibrated?.toFixed(3)})
+                  </span>
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Confidence ≥</th>
+                    <th scope="col">Items accepted</th>
+                    <th scope="col">Entire set correct</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {m.calibration.routing.map((r) => (
+                    <tr key={r.threshold}>
+                      <th scope="row">{pct(r.threshold)}</th>
+                      <td>{pct(r.coverage, 1)}</td>
+                      <td>{r.n === 0 ? "no items" : pct(r.exact_match, 1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}

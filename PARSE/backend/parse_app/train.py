@@ -79,14 +79,20 @@ def train(engine: Engine, settings: Settings, job_id: int | None = None) -> dict
             text("SELECT id, taxonomy_version, metrics->>'hf1' AS hf1 FROM model_versions WHERE status = 'active'")
         ).one_or_none()
 
+    load_s = time.perf_counter() - t0
     set_progress(engine, job_id, 0.15, f"fitting {len(tree)} node classifiers on {len(ids)} items")
     model = fit_calibrated(x, y, tree, mu=mu, **PARAMS)  # type: ignore[arg-type]
-    fit_s = time.perf_counter() - t0
+    fit_s = time.perf_counter() - t0 - load_s
 
     set_progress(engine, job_id, 0.55, f"evaluating on {len(test_ids)} held-out items")
     result, pred = evaluate(model, xt, yt, lang_t, group_t)
     result.update(
-        fit_seconds=round(fit_s, 2), nodes=len(tree), nodes_trained=int(model.trained.sum()), threshold=model.threshold
+        load_seconds=round(load_s, 2),
+        fit_seconds=round(fit_s, 2),
+        eval_seconds=round(time.perf_counter() - t0 - load_s - fit_s, 2),
+        nodes=len(tree),
+        nodes_trained=int(model.trained.sum()),
+        threshold=model.threshold,
     )
 
     # Regression gate. A candidate that is meaningfully worse than what is serving is kept for

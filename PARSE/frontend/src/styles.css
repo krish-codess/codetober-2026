@@ -18,6 +18,7 @@
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
+  --series-4: #eda100;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -38,6 +39,7 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --series-4: #c98500;
   }
 }
 
@@ -528,6 +530,17 @@ code {
   stroke: var(--series-3);
   background: var(--series-3);
 }
+.chart .line.s4,
+.swatch.s4 {
+  stroke: var(--series-4);
+  background: var(--series-4);
+}
+.chart .line.s4 {
+  stroke-dasharray: 6 4; /* the failed strategy: dashed as well as coloured */
+}
+.chart .dot.s4 {
+  fill: var(--series-4);
+}
 .chart .dot {
   stroke: var(--surface);
   stroke-width: 2;
@@ -601,4 +614,15 @@ details summary {
   .suggestion .tag {
     display: none;
   }
+}
+
+.routing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.75rem;
+}
+caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 0.5rem 0.6rem;
 }

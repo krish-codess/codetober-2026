@@ -138,6 +138,8 @@ def routing_tables(p: Floats, y_true: Bools, roots: Bools, thresholds: tuple[flo
     return {
         "ece_label": ece(p[live], y_true[live]),
         "ece_domain": ece(top_p, top_ok),
+        "label_reliability": reliability(p[live], y_true[live]),
+        "domain_reliability": reliability(top_p, top_ok),
         "label_routing": labels,
         "domain_routing": domain,
     }

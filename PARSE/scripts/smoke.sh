@@ -8,8 +8,9 @@ ADMIN="${ADMIN_TOKEN:?ADMIN_TOKEN not set}"
 ANNOTATOR="${ANNOTATOR_TOKEN:?ANNOTATOR_TOKEN not set}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 get() { curl -fsS --max-time 20 -H "Authorization: Bearer $2" "$BASE$1"; }
-py() { if command -v python3 >/dev/null 2>&1; then python3 "$@"; else python "$@"; fi; }
-json() { py -c "import sys,json; d=json.load(sys.stdin); print($1)"; }
+PY=""; for c in python3 python py; do if command -v "$c" >/dev/null 2>&1; then PY="$c"; break; fi; done
+[ -n "$PY" ] || fail "needs python3, python or py on PATH (used only to read JSON)"
+json() { PYTHONUTF8=1 "$PY" -c "import sys,json; d=json.load(sys.stdin); print($1)"; }
 
 echo "1. web serves the app"
 curl -fsS --max-time 10 "$BASE/" | grep -q '<div id="root">' || fail "index.html not served"
@@ -33,7 +34,7 @@ echo "6. the labelling queue has items with suggestions"
 
 echo "7. classification is consistent with the taxonomy"
 curl -fsS --max-time 30 -X POST -H "Authorization: Bearer $ANNOTATOR" -H 'Content-Type: application/json' \
-  -d '{"texts": ["The room was dirty and the staff were rude", "La batería del portátil dura dos horas"]}' \
+  -d '{"texts": ["The room was dirty and the staff were rude", "El teclado del ordenador no funciona bien"]}' \
   "$BASE/api/v1/classify" | json "[(r['route'], r['confidence'], [l['path'] for l in r['labels']]) for r in d['results']]"
 
 echo "OK: stack at $BASE is up and serving"

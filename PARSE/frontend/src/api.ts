@@ -80,7 +80,15 @@ export interface NodeMetrics {
   languages: string[];
   overall: Summary;
   by_lang: Record<string, Summary>;
-  calibration: { ece_item?: number; ece_item_uncalibrated?: number; routing?: RoutingRow[] };
+  calibration: {
+    ece_item?: number;
+    ece_item_uncalibrated?: number;
+    ece_label?: number;
+    ece_domain?: number;
+    routing?: RoutingRow[];
+    label_routing?: { threshold: number; n: number; precision: number | null; recall: number }[];
+    domain_routing?: { threshold: number; n: number; coverage: number; accuracy: number | null }[];
+  };
   nodes: NodeMetric[];
 }
 export interface EfficiencyPoint {

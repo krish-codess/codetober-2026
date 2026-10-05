@@ -35,6 +35,7 @@ def setup_logging(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per request, with signed URLs: noise
 
 
 def event(logger: logging.Logger, msg: str, level: int = logging.INFO, **fields: Any) -> None:

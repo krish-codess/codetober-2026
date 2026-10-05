@@ -128,14 +128,16 @@ def labelled_sets(conn: Connection, split: str, tree: Tree) -> tuple[list[int], 
     sources = ["human", "simulated"] if split == "pool" else ["gold"]
     rows = conn.execute(
         text(
-            """SELECT f.id, f.lang, f.group_key, e.vec,
-                      COALESCE(array_agg(l.node_id) FILTER (WHERE l.node_id IS NOT NULL), '{}') AS nodes
+            # Labels are aggregated per item BEFORE joining the 1.5 kB vectors: grouping by the
+            # vector column made this query the slowest part of training.
+            """SELECT f.id, f.lang, f.group_key, e.vec, COALESCE(l.nodes, '{}') AS nodes
                FROM annotations a
                JOIN feedback f ON f.id = a.feedback_id
                JOIN embeddings e ON e.feedback_id = f.id
-               LEFT JOIN labels l ON l.feedback_id = f.id
+               LEFT JOIN (SELECT feedback_id, array_agg(node_id) AS nodes FROM labels GROUP BY feedback_id) l
+                      ON l.feedback_id = f.id
                WHERE f.split = :split AND f.duplicate_of IS NULL AND a.source = ANY(:sources)
-               GROUP BY f.id, e.vec ORDER BY f.id"""
+               ORDER BY f.id"""
         ),
         {"split": split, "sources": sources},
     ).all()

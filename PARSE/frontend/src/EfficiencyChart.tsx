@@ -1,16 +1,17 @@
 import { useState } from "react";
 import type { Efficiency } from "./api";
 
-// Fixed entity -> colour slot mapping (never by rank): slots 1-3 of the validated palette.
+// Fixed entity -> colour slot mapping (never by rank): slots 1-4 of the validated palette, in its order.
 const SERIES = [
-  { key: "entropy_diverse", label: "Uncertainty + diversity", slot: 1 },
-  { key: "entropy", label: "Uncertainty only", slot: 2 },
-  { key: "random", label: "Random", slot: 3 },
+  { key: "mixed", label: "Mixed (default)", slot: 1 },
+  { key: "random", label: "Random", slot: 2 },
+  { key: "least_confident", label: "Least confident", slot: 3 },
+  { key: "entropy_sum", label: "Summed entropy", slot: 4 },
 ] as const;
 
 const W = 640;
 const H = 300;
-const M = { top: 16, right: 150, bottom: 40, left: 46 };
+const M = { top: 16, right: 124, bottom: 40, left: 46 };
 
 export function EfficiencyChart({ data }: { data: Efficiency }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -44,7 +45,13 @@ export function EfficiencyChart({ data }: { data: Efficiency }) {
     <figure className="viz-root chart">
       <figcaption>
         Held-out hierarchical F1 by number of labelled items
-        {sim && <span className="muted"> — offline simulation on the real corpus, mean of 3 seeds</span>}
+        {sim && (
+          <span className="muted">
+            {" "}
+            — offline simulation on the real corpus, mean of 3 seeds; the summed-entropy line is the strategy that
+            failed (see README)
+          </span>
+        )}
       </figcaption>
       {sim && (
         <ul className="legend" aria-label="Series">

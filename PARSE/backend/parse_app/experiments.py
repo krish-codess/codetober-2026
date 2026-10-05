@@ -366,6 +366,7 @@ def calibration_and_nodes(n: int = 1000) -> None:
                                 "reliability": M.reliability(conf, exact), "routing": routing},
             "node_probability": {"ece_calibrated": M.ece(p[live], c.test.y[live]), "ece_uncalibrated": M.ece(p_raw[live], c.test.y[live]),
                                  "pairs": int(live.sum())},
+            "routing": M.routing_tables(p, c.test.y, c.tree.depth == 1, ROUTING_THRESHOLDS),
             "nodes": nodes,
             "weakest_supported_nodes": sorted((nd for nd in nodes if nd["support"] >= 200), key=lambda nd: nd["f1"])[:15],
         }  # fmt: skip
