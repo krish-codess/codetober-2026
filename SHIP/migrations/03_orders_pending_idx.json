@@ -1,0 +1,20 @@
+{
+  "name": "03_orders_pending_idx",
+  "compatible_app_versions": [
+    "v2"
+  ],
+  "operations": [
+    {
+      "create_index": {
+        "columns": [
+          {
+            "column": "placed_at"
+          }
+        ],
+        "name": "idx_orders_pending",
+        "predicate": "status = 'pending'",
+        "table": "orders"
+      }
+    }
+  ]
+}

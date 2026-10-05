@@ -1,0 +1,77 @@
+{
+  "name": "01_initial",
+  "compatible_app_versions": ["v1"],
+  "operations": [
+    {
+      "create_table": {
+        "name": "customers",
+        "columns": [
+          { "name": "id", "type": "bigint", "pk": true, "generated": { "identity": { "user_specified_values": "BY DEFAULT" } } },
+          { "name": "email", "type": "text", "unique": true, "check": { "name": "customers_email_normalised", "constraint": "email = lower(btrim(email)) AND email LIKE '%@%'" } },
+          { "name": "name", "type": "text", "nullable": true },
+          { "name": "country", "type": "character(2)", "check": { "name": "customers_country_alpha2", "constraint": "country ~ '^[A-Z]{2}$'" } },
+          { "name": "created_at", "type": "timestamp with time zone", "default": "now()" }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "orders",
+        "columns": [
+          { "name": "id", "type": "bigint", "pk": true, "generated": { "identity": { "user_specified_values": "BY DEFAULT" } } },
+          { "name": "order_ref", "type": "text", "unique": true, "check": { "name": "orders_order_ref_length", "constraint": "length(order_ref) BETWEEN 1 AND 64" } },
+          { "name": "customer_id", "type": "bigint", "references": { "name": "orders_customer_fk", "table": "customers", "column": "id" } },
+          { "name": "status", "type": "text", "check": { "name": "orders_status_valid", "constraint": "status IN ('pending', 'paid', 'shipped', 'cancelled', 'refunded')" } },
+          { "name": "amount", "type": "text", "nullable": true, "comment": "Legacy: order total as free text, in whatever format the writer used" },
+          { "name": "currency", "type": "character(3)", "default": "'USD'", "check": { "name": "orders_currency_alpha3", "constraint": "currency ~ '^[A-Z]{3}$'" } },
+          { "name": "placed_at", "type": "timestamp with time zone" },
+          { "name": "created_at", "type": "timestamp with time zone", "default": "now()" }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "ingest_files",
+        "columns": [
+          { "name": "sha256", "type": "text", "pk": true, "check": { "name": "ingest_files_sha256_hex", "constraint": "sha256 ~ '^[0-9a-f]{64}$'" } },
+          { "name": "name", "type": "text" },
+          { "name": "lines", "type": "integer", "default": "0" },
+          { "name": "accepted", "type": "integer", "default": "0" },
+          { "name": "quarantined", "type": "integer", "default": "0" },
+          { "name": "duplicates", "type": "integer", "default": "0" },
+          { "name": "late", "type": "integer", "default": "0" },
+          { "name": "ingested_at", "type": "timestamp with time zone", "default": "now()" }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "quarantine",
+        "columns": [
+          { "name": "id", "type": "bigint", "pk": true, "generated": { "identity": { "user_specified_values": "BY DEFAULT" } } },
+          { "name": "source_sha256", "type": "text", "references": { "name": "quarantine_file_fk", "table": "ingest_files", "column": "sha256" } },
+          { "name": "line_no", "type": "integer", "check": { "name": "quarantine_line_no_positive", "constraint": "line_no > 0" } },
+          { "name": "reason", "type": "text" },
+          { "name": "raw", "type": "bytea", "comment": "The rejected line, byte for byte" },
+          { "name": "created_at", "type": "timestamp with time zone", "default": "now()" }
+        ],
+        "constraints": [
+          { "name": "quarantine_line_reason_unique", "type": "unique", "columns": ["source_sha256", "line_no", "reason"] }
+        ]
+      }
+    },
+    {
+      "create_index": {
+        "name": "idx_orders_customer_placed",
+        "table": "orders",
+        "columns": [{ "column": "customer_id" }, { "column": "placed_at" }]
+      }
+    },
+    {
+      "sql": {
+        "onComplete": true,
+        "up": "CREATE OR REPLACE FUNCTION public.parse_cents(t text) RETURNS bigint LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT CASE WHEN length(s) > 16 THEN NULL WHEN s ~ '^[$]?[0-9]+([.][0-9][0-9]?)?$' THEN (replace(s, '$', '')::numeric * 100)::bigint WHEN s ~ '^[$]?[0-9][0-9]?[0-9]?(,[0-9][0-9][0-9])+([.][0-9][0-9]?)?$' THEN (replace(replace(s, '$', ''), ',', '')::numeric * 100)::bigint WHEN s ~ '^[0-9]+,[0-9][0-9]?$' THEN (replace(s, ',', '.')::numeric * 100)::bigint END FROM (SELECT btrim(t, E' \\t\\n\\r')) AS x(s) $$; CREATE OR REPLACE FUNCTION public.format_cents(c bigint) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT (c / 100)::text || '.' || lpad((c % 100)::text, 2, '0') $$"
+      }
+    }
+  ]
+}

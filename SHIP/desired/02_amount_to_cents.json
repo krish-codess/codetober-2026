@@ -1,0 +1,26 @@
+{
+  "name": "02_amount_to_cents",
+  "compatible_app_versions": ["v2"],
+  "tables": {
+    "orders": {
+      "columns": [
+        { "name": "id", "type": "bigint" },
+        { "name": "order_ref", "type": "text" },
+        { "name": "customer_id", "type": "bigint" },
+        { "name": "status", "type": "text" },
+        {
+          "name": "amount_cents",
+          "type": "bigint",
+          "nullable": true,
+          "renamed_from": "amount",
+          "check": { "name": "orders_amount_cents_nonneg", "constraint": "amount_cents >= 0" },
+          "up": "public.parse_cents(amount)",
+          "down": "public.format_cents(amount_cents)"
+        },
+        { "name": "currency", "type": "character(3)" },
+        { "name": "placed_at", "type": "timestamp with time zone" },
+        { "name": "created_at", "type": "timestamp with time zone" }
+      ]
+    }
+  }
+}

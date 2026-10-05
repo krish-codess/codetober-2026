@@ -1,0 +1,28 @@
+{
+  "name": "02_amount_to_cents",
+  "compatible_app_versions": [
+    "v2"
+  ],
+  "operations": [
+    {
+      "alter_column": {
+        "check": {
+          "constraint": "amount >= 0",
+          "name": "orders_amount_cents_nonneg"
+        },
+        "column": "amount",
+        "down": "public.format_cents(amount_cents)",
+        "table": "orders",
+        "type": "bigint",
+        "up": "public.parse_cents(amount)"
+      }
+    },
+    {
+      "rename_column": {
+        "from": "amount",
+        "table": "orders",
+        "to": "amount_cents"
+      }
+    }
+  ]
+}

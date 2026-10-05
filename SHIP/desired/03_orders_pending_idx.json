@@ -1,0 +1,22 @@
+{
+  "name": "03_orders_pending_idx",
+  "compatible_app_versions": ["v2"],
+  "tables": {
+    "orders": {
+      "columns": [
+        { "name": "id", "type": "bigint" },
+        { "name": "order_ref", "type": "text" },
+        { "name": "customer_id", "type": "bigint" },
+        { "name": "status", "type": "text" },
+        { "name": "amount_cents", "type": "bigint", "nullable": true },
+        { "name": "currency", "type": "character(3)" },
+        { "name": "placed_at", "type": "timestamp with time zone" },
+        { "name": "created_at", "type": "timestamp with time zone" }
+      ],
+      "indexes": [
+        { "name": "idx_orders_customer_placed", "columns": ["customer_id", "placed_at"] },
+        { "name": "idx_orders_pending", "columns": ["placed_at"], "predicate": "status = 'pending'" }
+      ]
+    }
+  }
+}
