@@ -580,8 +580,7 @@ def get_queue(
         remaining = conn.execute(
             text(
                 """SELECT count(*) FROM predictions p JOIN feedback f ON f.id = p.feedback_id
-                   WHERE NOT EXISTS (SELECT 1 FROM annotations a WHERE a.feedback_id = p.feedback_id)
-                     AND f.duplicate_of IS NULL AND (CAST(:lang AS text) IS NULL OR f.lang = :lang)"""
+                   WHERE f.duplicate_of IS NULL AND (CAST(:lang AS text) IS NULL OR f.lang = :lang)"""
             ),
             {"lang": lang},
         ).scalar_one()

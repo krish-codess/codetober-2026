@@ -83,7 +83,7 @@ def test_health_exercises_dependencies(client: TestClient) -> None:
     r = client.get(V1 + "/health")
     body = r.json()
     assert r.status_code == 200 and body["status"] == "ok"
-    assert body["checks"]["database"]["schema"] == "0001" and body["checks"]["model"]["model_version"] >= 1
+    assert body["checks"]["database"]["schema"] == "0002" and body["checks"]["model"]["model_version"] >= 1
     assert body["checks"]["embedder"]["ok"]
 
 

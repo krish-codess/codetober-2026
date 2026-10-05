@@ -113,6 +113,9 @@ def save_annotation(
         {"f": feedback_id, "a": annotator, "s": source, "v": current_version(conn), "m": model_id},
     )
     conn.execute(text("DELETE FROM labels WHERE feedback_id = :f"), {"f": feedback_id})
+    # A labelled item leaves the queue by losing its prediction row: the queue query is then a
+    # plain walk of the (priority, id) index with no anti-join (docs/explain/predictions_queue.txt).
+    conn.execute(text("DELETE FROM predictions WHERE feedback_id = :f"), {"f": feedback_id})
     if wanted:
         conn.execute(
             text("INSERT INTO labels (feedback_id, node_id) VALUES (:f, :n) ON CONFLICT DO NOTHING"),
@@ -231,8 +234,7 @@ def queue_page(
             text(
                 f"""SELECT {ITEM_COLS}, p.node_ids, p.probs, p.confidence, p.uncertainty, p.priority, p.model_version_id
                     FROM predictions p JOIN feedback f ON f.id = p.feedback_id
-                    WHERE NOT EXISTS (SELECT 1 FROM annotations a WHERE a.feedback_id = p.feedback_id)
-                      AND f.split = 'pool' AND f.duplicate_of IS NULL
+                    WHERE f.duplicate_of IS NULL
                       AND (CAST(:lang AS text) IS NULL OR f.lang = :lang)
                       AND (CAST(:prio AS real) IS NULL OR p.priority < CAST(:prio AS real)
                            OR (p.priority = CAST(:prio AS real) AND p.feedback_id > :fid))

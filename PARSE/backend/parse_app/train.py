@@ -197,6 +197,14 @@ def prediction_rows(model: HierModel, model_id: int, ids: list[int], x: Any) -> 
 def score_pool(engine: Engine, model_id: int, model: HierModel) -> int:
     """Refresh suggestions + queue priority for every unlabelled pool item (idempotent upsert)."""
     with engine.begin() as conn:
+        # rows of items that were labelled or became duplicates since the last scoring
+        conn.execute(
+            text(
+                """DELETE FROM predictions p USING feedback f
+                   WHERE f.id = p.feedback_id AND (f.duplicate_of IS NOT NULL
+                       OR EXISTS (SELECT 1 FROM annotations a WHERE a.feedback_id = p.feedback_id))"""
+            )
+        )
         ids, x = unlabelled_pool(conn)
         if not ids:
             return 0

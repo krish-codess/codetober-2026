@@ -1,0 +1,45 @@
+
+=== 0. starting point (08:48:38Z)
+api image: parse-backend:local
+ok model 5 schema 0001
+
+=== 1. deploy v2 (08:48:40Z)
+ Container parse-api-1  Healthy
+ Container parse-db-1  Healthy
+ Container parse-web-1  Healthy
+ Container parse-migrate-1  Exited
+api image: parse-backend:v2   worker image: parse-backend:v2   web image: parse-web:v2
+ok model 5 schema 0001
+OK: stack at http://127.0.0.1:8141 is up and serving
+
+=== 2. roll back to v1 (08:49:23Z)
+ Container parse-db-1  Healthy
+ Container parse-web-1  Healthy
+ Container parse-worker-1  Healthy
+ Container parse-api-1  Healthy
+api image: parse-backend:v1   worker image: parse-backend:v1   web image: parse-web:v1
+ok model 5 schema 0001
+OK: stack at http://127.0.0.1:8141 is up and serving
+
+=== 3. roll forward to v2 (08:49:59Z)
+ Container parse-api-1  Healthy
+ Container parse-worker-1  Healthy
+ Container parse-seed-1  Exited
+ Container parse-migrate-1  Exited
+api image: parse-backend:v2
+ok model 5 schema 0001
+
+=== 4. model rollback: serve the previous model version, then restore (08:50:23Z)
+active=5 previous=4
+after rollback:  ok model 4 schema 0001
+after restoring: ok model 5 schema 0001
+
+=== 5. backup, restore into a scratch database, compare (08:50:25Z)
+dump size: 102M
+NOTICE:  database "parse_restore_drill" does not exist, skipping
+live:     56685|56372|313|56372|157823|241|5|fc0e10e2a9efdf26d1b45e8565404004
+restored: 56685|56372|313|56372|157823|241|5|fc0e10e2a9efdf26d1b45e8565404004
+triggers survive the restore: 6 triggers
+CONTEXT:  PL/pgSQL function forbid_mutation() line 3 at RAISE
+
+DRILL OK

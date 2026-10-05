@@ -20,11 +20,10 @@ OUT = Path(__file__).resolve().parents[2] / "docs" / "explain"
 CASES: list[tuple[str, str, str, dict[str, str]]] = [
     (
         "predictions_queue",
-        "Labelling queue: next 20 unlabelled items by priority (GET /queue). Runs on every page of labelling.",
+        "Labelling queue: next 20 items by priority (GET /queue). Runs on every page of labelling.",
         """SELECT f.id, f.text, p.node_ids, p.probs, p.priority
            FROM predictions p JOIN feedback f ON f.id = p.feedback_id
-           WHERE NOT EXISTS (SELECT 1 FROM annotations a WHERE a.feedback_id = p.feedback_id)
-             AND f.split = 'pool' AND f.duplicate_of IS NULL
+           WHERE f.duplicate_of IS NULL
            ORDER BY p.priority DESC, p.feedback_id LIMIT 20""",
         {},
     ),
@@ -45,19 +44,6 @@ CASES: list[tuple[str, str, str, dict[str, str]]] = [
         "Duplicate detection at ingest and the pool/test leakage guard: rows sharing a text hash.",
         "SELECT id, split FROM feedback WHERE text_sha256 = :sha",
         {"sha": "SELECT text_sha256 FROM feedback ORDER BY id LIMIT 1 OFFSET 500"},
-    ),
-    (
-        "jobs_queued",
-        "Worker claim: oldest runnable job, polled every 3 seconds.",
-        """SELECT id FROM jobs WHERE status = 'queued' AND requested_at <= now()
-           ORDER BY requested_at LIMIT 1 FOR UPDATE SKIP LOCKED""",
-        {},
-    ),
-    (
-        "taxonomy_nodes_parent",
-        "Trigger path: children of a node (label close-down, subtree re-derivation). Fires per label delete.",
-        "SELECT id FROM taxonomy_nodes WHERE parent_id = :node",
-        {"node": "SELECT parent_id FROM taxonomy_nodes WHERE parent_id IS NOT NULL LIMIT 1"},
     ),
 ]
 
