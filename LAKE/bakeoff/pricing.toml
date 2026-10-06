@@ -1,0 +1,39 @@
+# Public list prices, USD, single region, first pricing tier, no discounts or free tier.
+# Prices drift: check `sources` before quoting a number from this project, and edit here.
+# `verified` says how each row was checked on `as_of`; "recalled" means it was NOT checked
+# against the vendor page and is the author's recollection of the list price.
+
+as_of = "2026-10-06"
+
+[providers.aws]
+label = "AWS: S3 Standard + Athena, us-east-1"
+storage_gb_month = 0.023   # S3 Standard, first 50 TB
+get_per_1k = 0.0004        # GET
+put_per_1k = 0.005         # PUT
+scan_per_tb = 5.00         # Athena SQL, per TB (10^12 bytes) scanned
+min_scan_mb = 10           # Athena bills at least 10 MB per query
+vcpu_hour = 0.0446         # c7i.large on-demand, $0.08925/h over 2 vCPU
+verified = "storage, requests, scan and minimum checked against the pages below; vcpu_hour recalled"
+sources = ["https://aws.amazon.com/s3/pricing/", "https://aws.amazon.com/athena/pricing/"]
+
+[providers.gcp]
+label = "GCP: Cloud Storage Standard + BigQuery on-demand, us-east1"
+storage_gb_month = 0.020
+get_per_1k = 0.0004        # Class B operations
+put_per_1k = 0.005         # Class A operations
+scan_per_tb = 5.68         # $6.25 per TiB = $5.68 per 10^12 bytes
+min_scan_mb = 10
+vcpu_hour = 0.0486         # n2-standard-2 on-demand over 2 vCPU
+verified = "scan price checked via a secondary source; the rest recalled"
+sources = ["https://cloud.google.com/storage/pricing", "https://cloud.google.com/bigquery/pricing"]
+
+[providers.azure]
+label = "Azure: Blob Hot LRS + Synapse serverless SQL, East US 2"
+storage_gb_month = 0.018
+get_per_1k = 0.0004        # read operations, $0.004 per 10k
+put_per_1k = 0.005         # write operations, $0.05 per 10k
+scan_per_tb = 5.00
+min_scan_mb = 10
+vcpu_hour = 0.048          # D2s v5 on-demand over 2 vCPU
+verified = "recalled"
+sources = ["https://azure.microsoft.com/pricing/details/storage/blobs/", "https://azure.microsoft.com/pricing/details/synapse-analytics/"]

@@ -7,3 +7,7 @@ node_modules/
 __pycache__/
 *.stackdump
 .DS_Store
+*.egg-info/
+*.pyc
+dist/
+build/

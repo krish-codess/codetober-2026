@@ -1,0 +1,46 @@
+# docker compose up --build
+#   -> http://localhost:8000 serving the published results baked into the image.
+# docker compose --profile bench run --rm bench
+#   -> re-runs the whole bake-off inside the container (synthetic data unless .env says tlc);
+#      the page then shows your run instead of the published one.
+
+x-bakeoff: &bakeoff
+  build: .
+  image: lake-bakeoff:local
+  env_file:
+    - path: .env
+      required: false
+  volumes:
+    - lake-data:/data
+
+services:
+  web:
+    <<: *bakeoff
+    command: ["serve"]
+    environment:
+      # Container paths always win over whatever a host .env says.
+      LAKE_DATA_DIR: /data
+      LAKE_PUBLISHED_DIR: /app/results
+      LAKE_PORT: "8000"
+    ports:
+      - "${LAKE_PORT:-8000}:8000"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  bench:
+    <<: *bakeoff
+    profiles: [bench]
+    command: ["all"]
+    environment:
+      LAKE_DATA_DIR: /data
+      LAKE_PUBLISHED_DIR: /app/results
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  # A named volume, not a bind mount: fadvise-based cache eviction (cold runs) needs a real
+  # Linux filesystem, and bind mounts from Windows or macOS hosts are not one.
+  lake-data:

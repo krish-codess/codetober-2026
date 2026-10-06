@@ -1,0 +1,746 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "The Compression Bake-Off",
+  "description": "Read-only HTTP API over the results, plus the cost model. Serves the built UI at /.\n\nThere is no user or tenant in this system and nothing an HTTP caller can mutate, so there is\nno authentication. Benchmarks are started from the CLI only: a benchmark sharing a process\nwith a web server measures the web server.\n",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/healthz": {
+   "get": {
+    "tags": [
+     "ops"
+    ],
+    "summary": "Healthz",
+    "description": "Exercises every dependency: results parse, measurements scan, and a real Parquet round trip.",
+    "operationId": "healthz_healthz_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Health"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Service Unavailable",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Health"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/metrics": {
+   "get": {
+    "tags": [
+     "ops"
+    ],
+    "summary": "Metrics",
+    "description": "Prometheus text format.",
+    "operationId": "metrics_metrics_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/results": {
+   "get": {
+    "tags": [
+     "results"
+    ],
+    "summary": "Get Results",
+    "description": "The whole published result set: dataset, environment, every variant and query cell,\npushdown analysis, column lab. Supports `If-None-Match`; clients should revalidate, not refetch.",
+    "operationId": "get_results_api_results_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Unprocessable Entity",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Service Unavailable",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Not Found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/measurements": {
+   "get": {
+    "tags": [
+     "results"
+    ],
+    "summary": "Get Measurements",
+    "description": "Raw executions, ordered by `seq`. Keyset pagination: stable under concurrent reads.",
+    "operationId": "get_measurements_api_measurements_get",
+    "parameters": [
+     {
+      "name": "cursor",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "description": "`next_cursor` from the previous page; 0 starts.",
+       "default": 0,
+       "title": "Cursor"
+      },
+      "description": "`next_cursor` from the previous page; 0 starts."
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 500,
+       "minimum": 1,
+       "default": 100,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "variant",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 64
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Variant"
+      }
+     },
+     {
+      "name": "query",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 64
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Query"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MeasurementPage"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      },
+      "description": "Unprocessable Entity"
+     },
+     "503": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      },
+      "description": "Service Unavailable"
+     }
+    }
+   }
+  },
+  "/api/pricing": {
+   "get": {
+    "tags": [
+     "cost"
+    ],
+    "summary": "Get Pricing",
+    "description": "The list prices the cost model uses, with sources and how each was verified.",
+    "operationId": "get_pricing_api_pricing_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Get Pricing Api Pricing Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/recommend": {
+   "post": {
+    "tags": [
+     "cost"
+    ],
+    "summary": "Post Recommend",
+    "description": "Monthly cost of every variant for a described workload, ranked, with the pick explained.\nPure function of the request and the results: safe to retry.",
+    "operationId": "post_recommend_api_recommend_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Workload"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recommendation"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Unprocessable Entity",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Service Unavailable",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Not Found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorBody"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Check": {
+    "properties": {
+     "ok": {
+      "type": "boolean",
+      "title": "Ok"
+     },
+     "detail": {
+      "type": "string",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "required": [
+     "ok",
+     "detail"
+    ],
+    "title": "Check"
+   },
+   "ErrorBody": {
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/ErrorInfo"
+     }
+    },
+    "type": "object",
+    "required": [
+     "error"
+    ],
+    "title": "ErrorBody"
+   },
+   "ErrorDetail": {
+    "properties": {
+     "field": {
+      "type": "string",
+      "title": "Field"
+     },
+     "problem": {
+      "type": "string",
+      "title": "Problem"
+     }
+    },
+    "type": "object",
+    "required": [
+     "field",
+     "problem"
+    ],
+    "title": "ErrorDetail"
+   },
+   "ErrorInfo": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "title": "Code"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "details": {
+      "items": {
+       "$ref": "#/components/schemas/ErrorDetail"
+      },
+      "type": "array",
+      "title": "Details",
+      "default": []
+     },
+     "request_id": {
+      "type": "string",
+      "title": "Request Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "message",
+     "request_id"
+    ],
+    "title": "ErrorInfo"
+   },
+   "Excluded": {
+    "properties": {
+     "variant": {
+      "type": "string",
+      "title": "Variant"
+     },
+     "reason": {
+      "type": "string",
+      "title": "Reason"
+     }
+    },
+    "type": "object",
+    "required": [
+     "variant",
+     "reason"
+    ],
+    "title": "Excluded"
+   },
+   "Health": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "checks": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/Check"
+      },
+      "type": "object",
+      "title": "Checks"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "checks"
+    ],
+    "title": "Health"
+   },
+   "Measurement": {
+    "properties": {
+     "seq": {
+      "type": "integer",
+      "title": "Seq"
+     },
+     "variant": {
+      "type": "string",
+      "title": "Variant"
+     },
+     "query": {
+      "type": "string",
+      "title": "Query"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "ts": {
+      "type": "string",
+      "title": "Ts"
+     },
+     "seconds": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seconds"
+     },
+     "cpu_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cpu S"
+     },
+     "bytes_read": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bytes Read"
+     },
+     "reads": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reads"
+     },
+     "ok": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ok"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "seq",
+     "variant",
+     "query",
+     "kind",
+     "ts",
+     "seconds",
+     "cpu_s",
+     "bytes_read",
+     "reads",
+     "ok",
+     "error"
+    ],
+    "title": "Measurement"
+   },
+   "MeasurementPage": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/Measurement"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Cursor"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items",
+     "next_cursor"
+    ],
+    "title": "MeasurementPage"
+   },
+   "Ranked": {
+    "properties": {
+     "variant": {
+      "type": "string",
+      "title": "Variant"
+     },
+     "format": {
+      "type": "string",
+      "title": "Format"
+     },
+     "codec": {
+      "type": "string",
+      "title": "Codec"
+     },
+     "storage": {
+      "type": "number",
+      "title": "Storage"
+     },
+     "scan": {
+      "type": "number",
+      "title": "Scan"
+     },
+     "compute": {
+      "type": "number",
+      "title": "Compute"
+     },
+     "requests": {
+      "type": "number",
+      "title": "Requests"
+     },
+     "write": {
+      "type": "number",
+      "title": "Write"
+     },
+     "total": {
+      "type": "number",
+      "title": "Total"
+     },
+     "latency_s": {
+      "type": "number",
+      "title": "Latency S"
+     },
+     "score": {
+      "type": "number",
+      "title": "Score"
+     }
+    },
+    "type": "object",
+    "required": [
+     "variant",
+     "format",
+     "codec",
+     "storage",
+     "scan",
+     "compute",
+     "requests",
+     "write",
+     "total",
+     "latency_s",
+     "score"
+    ],
+    "title": "Ranked"
+   },
+   "Recommendation": {
+    "properties": {
+     "workload": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Workload"
+     },
+     "price": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Price"
+     },
+     "pick": {
+      "type": "string",
+      "title": "Pick"
+     },
+     "why": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Why"
+     },
+     "ranked": {
+      "items": {
+       "$ref": "#/components/schemas/Ranked"
+      },
+      "type": "array",
+      "title": "Ranked"
+     },
+     "excluded": {
+      "items": {
+       "$ref": "#/components/schemas/Excluded"
+      },
+      "type": "array",
+      "title": "Excluded"
+     },
+     "assumptions": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Assumptions"
+     }
+    },
+    "type": "object",
+    "required": [
+     "workload",
+     "price",
+     "pick",
+     "why",
+     "ranked",
+     "excluded",
+     "assumptions"
+    ],
+    "title": "Recommendation"
+   },
+   "Workload": {
+    "properties": {
+     "dataset_gb": {
+      "type": "number",
+      "maximum": 10000000.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Dataset Gb",
+      "description": "Dataset size as uncompressed CSV, GB (10^9 bytes).",
+      "default": 100
+     },
+     "queries_per_month": {
+      "type": "integer",
+      "maximum": 1000000000.0,
+      "minimum": 0.0,
+      "title": "Queries Per Month",
+      "default": 10000
+     },
+     "mix": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Mix",
+      "description": "Relative weight per query class. Empty = every class in the workload equally."
+     },
+     "rewrites_per_month": {
+      "type": "number",
+      "maximum": 1000.0,
+      "minimum": 0.0,
+      "title": "Rewrites Per Month",
+      "description": "How many times a month the whole dataset is (re)encoded. 0.1 = 10% new data a month.",
+      "default": 1
+     },
+     "provider": {
+      "type": "string",
+      "enum": [
+       "aws",
+       "gcp",
+       "azure"
+      ],
+      "title": "Provider",
+      "default": "aws"
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "serverless",
+       "self_hosted"
+      ],
+      "title": "Engine",
+      "description": "serverless = pay per byte scanned; self_hosted = pay for CPU time.",
+      "default": "serverless"
+     },
+     "objective": {
+      "type": "string",
+      "enum": [
+       "cost",
+       "speed",
+       "balanced"
+      ],
+      "title": "Objective",
+      "default": "balanced"
+     }
+    },
+    "type": "object",
+    "title": "Workload",
+    "description": "A described workload. All sizes are in terms of the data as uncompressed CSV."
+   }
+  }
+ }
+}

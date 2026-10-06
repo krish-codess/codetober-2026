@@ -1,0 +1,139 @@
+# Dataset contract for NYC TLC yellow-taxi trips: schema, validation rules, query workload.
+# Designed AFTER profiling the real files (docs/data-profile.md); every rule below exists
+# because the real data violates it. docs/data-dictionary.md is generated from this file.
+#
+# This file is trusted, code-reviewed configuration. Rule and query SQL is never taken
+# from a request or any other runtime input.
+
+[dataset]
+name = "nyc_yellow_taxi"
+description = "NYC TLC yellow-taxi trip records, one row per metered trip."
+# Variants are written sorted on this column. Row-group and stripe min/max statistics only
+# prune when the filter column is clustered, so the sort key is a storage decision.
+sort_key = "pickup_datetime"
+
+# [name, header in the landing CSV, DuckDB type, nullable, unit, meaning]
+columns = [
+  ["vendor_id", "VendorID", "INTEGER", false, "code", "TPEP provider that produced the record: 1 Creative Mobile, 2 Curb, 6 Myle, 7 Helix."],
+  ["pickup_datetime", "tpep_pickup_datetime", "TIMESTAMP", false, "local time, s", "Meter engaged. Sort key of every variant."],
+  ["dropoff_datetime", "tpep_dropoff_datetime", "TIMESTAMP", false, "local time, s", "Meter disengaged."],
+  ["passenger_count", "passenger_count", "BIGINT", true, "people", "Driver-entered. NULL on the 5-8% of rows that arrive without trip metadata."],
+  ["trip_distance", "trip_distance", "DOUBLE", false, "miles", "Taximeter distance."],
+  ["ratecode_id", "RatecodeID", "BIGINT", true, "code", "Final rate code: 1 standard, 2 JFK, 3 Newark, 4 Nassau/Westchester, 5 negotiated, 6 group, 99 unknown."],
+  ["store_and_fwd_flag", "store_and_fwd_flag", "VARCHAR", true, "Y/N", "Y when the record was held in vehicle memory before upload."],
+  ["pu_location_id", "PULocationID", "INTEGER", false, "TLC zone 1-265", "Pickup taxi zone."],
+  ["do_location_id", "DOLocationID", "INTEGER", false, "TLC zone 1-265", "Dropoff taxi zone."],
+  ["payment_type", "payment_type", "BIGINT", false, "code", "0 flex fare/unknown, 1 card, 2 cash, 3 no charge, 4 dispute."],
+  ["fare_amount", "fare_amount", "DOUBLE", false, "USD", "Time-and-distance fare. Negative on voids and adjustments."],
+  ["extra", "extra", "DOUBLE", false, "USD", "Rush-hour and overnight surcharges."],
+  ["mta_tax", "mta_tax", "DOUBLE", false, "USD", "MTA tax triggered by the metered rate."],
+  ["tip_amount", "tip_amount", "DOUBLE", false, "USD", "Card tips only; cash tips are not recorded."],
+  ["tolls_amount", "tolls_amount", "DOUBLE", false, "USD", "Tolls paid in trip."],
+  ["improvement_surcharge", "improvement_surcharge", "DOUBLE", false, "USD", "Flat surcharge at flag drop."],
+  ["total_amount", "total_amount", "DOUBLE", false, "USD", "Charged to the passenger, excluding cash tips."],
+  ["congestion_surcharge", "congestion_surcharge", "DOUBLE", true, "USD", "NYS congestion surcharge."],
+  ["airport_fee", "Airport_fee", "DOUBLE", true, "USD", "Pickup fee at LaGuardia and JFK."],
+  ["source_month", "source_month", "VARCHAR", false, "YYYY-MM", "Monthly TLC file the row arrived in. Lineage, and the reference for late arrivals."],
+]
+
+# Rules run in order; the first quarantine rule that matches names the reason. A NULL in a
+# non-nullable column is quarantined automatically as `null_in_required`, and exact duplicate
+# rows as `duplicate`. Rules with quarantine = false only count: the row is real and is kept.
+
+[[rules]]
+id = "pickup_far_outside_file_month"
+quarantine = true
+when = "date_diff('month', strptime(source_month, '%Y-%m'), pickup_datetime) NOT BETWEEN -1 AND 1"
+why = "Each monthly file carries a handful of trips stamped 2002, 2008 or 2009: meter clock faults, not late data."
+
+[[rules]]
+id = "dropoff_before_pickup"
+quarantine = true
+when = "dropoff_datetime < pickup_datetime"
+why = "A trip cannot end before it starts; durations and any time-based rate are meaningless."
+
+[[rules]]
+id = "trip_distance_implausible"
+quarantine = true
+when = "trip_distance < 0 OR trip_distance > 500"
+why = "The real feed contains trips of 300,000 miles. One such row moves the column mean by 10%."
+
+[[rules]]
+id = "location_out_of_range"
+quarantine = true
+when = "pu_location_id NOT BETWEEN 1 AND 265 OR do_location_id NOT BETWEEN 1 AND 265"
+why = "Zone ids outside the TLC zone table break every join to zone geography."
+
+[[rules]]
+id = "late_arrival"
+quarantine = false
+when = "date_diff('month', strptime(source_month, '%Y-%m'), pickup_datetime) <> 0"
+why = "Trips from the adjacent month that arrived in this file. Valid, kept, and sorted into place."
+
+[[rules]]
+id = "negative_amount"
+quarantine = false
+when = "fare_amount < 0 OR total_amount < 0"
+why = "Voids and adjustments (~1.4% of rows). Real records: dropping them silently would change every revenue sum."
+
+[[rules]]
+id = "unknown_vendor"
+quarantine = false
+when = "vendor_id NOT IN (1, 2, 6, 7)"
+why = "Provider code missing from the TLC data dictionary."
+
+[[rules]]
+id = "zero_passengers"
+quarantine = false
+when = "passenger_count = 0"
+why = "Driver-entered field left at zero."
+
+[[rules]]
+id = "trip_over_24h"
+quarantine = false
+when = "dropoff_datetime - pickup_datetime > INTERVAL 24 HOUR"
+why = "Meter left running. Kept; flagged for anything computing durations."
+
+# The fixed workload. Every query runs against a relation named `t`. $lo / $hi are bound
+# parameters: the 50th and 51st percentile of the sort key, so the clustered filter selects
+# 1% of rows on any dataset. `projection`, `filter_clustered` and `filter_unclustered` read
+# the same three columns on purpose: the difference in bytes read between them is predicate
+# pushdown and nothing else.
+
+[[queries]]
+id = "count"
+class = "metadata"
+sql = "SELECT count(*) FROM t"
+description = "Row count. A columnar footer answers it; a row format decodes everything."
+
+[[queries]]
+id = "full_scan"
+class = "full_scan"
+sql = "SELECT max(COLUMNS(*)) FROM t"
+description = "Touches all 20 columns: the worst case for a columnar format."
+
+[[queries]]
+id = "projection"
+class = "projection"
+sql = "SELECT min(pickup_datetime), sum(total_amount), max(pu_location_id) FROM t"
+description = "3 of 20 columns, no filter. The control for both filter queries."
+
+[[queries]]
+id = "filter_clustered"
+class = "filter_clustered"
+control = "projection"
+sql = "SELECT min(pickup_datetime), sum(total_amount), max(pu_location_id) FROM t WHERE pickup_datetime >= $lo AND pickup_datetime < $hi"
+description = "1% time-range filter on the sort key. Statistics can skip whole row groups."
+
+[[queries]]
+id = "filter_unclustered"
+class = "filter_unclustered"
+control = "projection"
+sql = "SELECT min(pickup_datetime), sum(total_amount), max(pu_location_id) FROM t WHERE pu_location_id = 132"
+description = "Equality filter on a column the data is not sorted by (JFK pickups). Min/max statistics cannot help."
+
+[[queries]]
+id = "groupby"
+class = "aggregate"
+sql = "SELECT pu_location_id, count(*), avg(total_amount), avg(tip_amount) FROM t GROUP BY 1 ORDER BY 1"
+description = "Group-by over 3 columns: the dashboard query."
