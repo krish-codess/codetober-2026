@@ -76,6 +76,23 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("build", help="generate one payload per user from the marts")
     sub.add_parser("audit", help="check every payload against the warehouse; exits 1 on any violation")
+    sub.add_parser("migrate", help="apply database migrations (alembic upgrade head)")
+    sub.add_parser("publish", help="load the built run into Postgres and make it the one served")
+    sub.add_parser("rollback", help="serve the previous run again")
+
+    p = sub.add_parser("run-all", help="ingest, transform, build, audit, publish: the whole batch, in order")
+    p.add_argument("--no-publish", action="store_true")
+
+    p = sub.add_parser("links", help="print personal links for a few users of each tier (what a product would email)")
+    p.add_argument("--per-tier", type=int, default=2)
+    p.add_argument("--user-id", type=int, help="print the link for one specific user instead")
+
+    p = sub.add_parser("serve", help="run the API")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+
+    p = sub.add_parser("openapi", help="write the OpenAPI document generated from the code")
+    p.add_argument("path", type=Path)
 
     args = parser.parse_args(argv)
     settings = config.load()
@@ -108,17 +125,71 @@ def main(argv: list[str] | None = None) -> None:
         _timed(settings, "ingest", lambda: ingest(settings))
     elif args.command == "transform":
         print(_timed(settings, "transform", lambda: transform(settings, args.full_refresh)))
-    elif args.command == "build":
-        from wrapped.build import build
+    elif args.command in ("build", "audit", "publish", "run-all"):
+        run_batch(settings, args.command, publish_after=not getattr(args, "no_publish", False))
+    elif args.command == "migrate":
+        os.environ["WRAPPED_MIGRATE_DATABASE_URL"] = settings.migrate_database_url
+        subprocess.run(  # noqa: S603 - fixed argv, no shell
+            [sys.executable, "-m", "alembic", "-c", str(REPO_ROOT / "alembic.ini"), "upgrade", "head"],
+            check=True,
+            cwd=REPO_ROOT,
+        )
+    elif args.command == "rollback":
+        from wrapped.publish import rollback
 
+        print(json.dumps(_timed(settings, "rollback", lambda: rollback(settings)), indent=2))
+    elif args.command == "links":
+        print_links(settings, args.per_tier, args.user_id)
+    elif args.command == "serve":
+        import uvicorn
+
+        uvicorn.run("wrapped.api:create_app", factory=True, host=args.host, port=args.port, log_config=None)
+    elif args.command == "openapi":
+        from wrapped.api import create_app
+
+        args.path.write_text(json.dumps(create_app(settings).openapi(), indent=2) + "\n")
+
+
+def run_batch(settings: Settings, command: str, publish_after: bool = True) -> None:
+    """The batch stages after transform. `run-all` is every stage in order; a failed audit stops before publish."""
+    from wrapped.build import audit, build
+    from wrapped.ingest import ingest
+    from wrapped.publish import publish
+
+    everything = command == "run-all"
+    if everything:
+        _timed(settings, "ingest", lambda: ingest(settings))
+        _timed(settings, "transform", lambda: transform(settings))
+    if everything or command == "build":
         print(json.dumps(_timed(settings, "build", lambda: build(settings)), indent=2))
-    elif args.command == "audit":
-        from wrapped.build import audit
-
+    if everything or command == "audit":
         result = _timed(settings, "audit", lambda: audit(settings))
         print(json.dumps(result, indent=2))
         if result["violation_count"]:  # type: ignore[index]
-            raise SystemExit(1)
+            raise SystemExit("audit failed: refusing to publish a run that says something untrue")
+    if (everything and publish_after) or command == "publish":
+        print(json.dumps(_timed(settings, "publish", lambda: publish(settings)), indent=2))
+
+
+def print_links(settings: Settings, per_tier: int, user_id: int | None) -> None:
+    from wrapped import auth
+    from wrapped.publish import connect
+
+    with connect(settings.api_database_url) as conn:
+        if user_id is not None:
+            rows = [(user_id, "", "")]
+        else:
+            rows = conn.execute(
+                """SELECT user_id, login, tier FROM (
+                       SELECT p.user_id, p.login, p.tier,
+                              row_number() OVER (PARTITION BY p.tier ORDER BY p.user_id) AS n
+                       FROM active_runs a JOIN wrapped_payloads p ON p.run_id = a.run_id WHERE a.year = %s
+                   ) ranked WHERE n <= %s ORDER BY tier, user_id""",
+                [settings.year, per_tier],
+            ).fetchall()
+    for uid, login, tier in rows:
+        token = auth.mint(settings.token_secret, uid, settings.year)
+        print(f"{tier:<8} {login:<28} {settings.public_base_url}/#t={token}")
 
 
 if __name__ == "__main__":
