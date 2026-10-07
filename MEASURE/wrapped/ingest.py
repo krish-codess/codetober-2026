@@ -266,7 +266,9 @@ def fetch(
         part = target.with_suffix(".part")
         for attempt in range(1, attempts + 1):
             try:
-                with urllib.request.urlopen(f"{base_url}/{name}", timeout=60) as resp, open(part, "wb") as out:  # noqa: S310
+                # The archive's edge answers 403 to urllib's default User-Agent.
+                request = urllib.request.Request(f"{base_url}/{name}", headers={"User-Agent": "wrapped-fetch/1.0"})  # noqa: S310
+                with urllib.request.urlopen(request, timeout=60) as resp, open(part, "wb") as out:  # noqa: S310
                     expected = int(resp.headers.get("Content-Length", "-1"))
                     shutil.copyfileobj(resp, out, length=1 << 20)
                 if expected >= 0 and part.stat().st_size != expected:
@@ -283,6 +285,9 @@ def fetch(
                     part.unlink(missing_ok=True)
                     warn(logger, "hour not in archive", file=name)
                     break
+                if exc.code < 500 and exc.code not in (408, 429):  # asking again will get the same answer
+                    part.unlink(missing_ok=True)
+                    raise RuntimeError(f"could not fetch {name}: HTTP {exc.code} {exc.reason}") from exc
                 err: Exception = exc
             except OSError as exc:
                 err = exc

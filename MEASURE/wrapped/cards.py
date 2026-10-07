@@ -350,7 +350,7 @@ def build_payload(row: dict[str, Any], ranks: dict[str, Rank], population: dict[
         stats.append({"label": best["unit"], "value": best["value"]})
     summary = {
         "type": "summary", "family": "frame", "shareable": True, "headline": archetype, "value": row["login"], "unit": str(year),
-        "body": f"{best['claim']['text']}, {best['claim']['basis']}." if best else f"That was your {year}.",
+        "body": f"That was your {year}.",
         "claim": best["claim"] if best else None, "stats": stats,
         "facts": {"events": events, "active_days": active_days} | (best["facts"] if best else {}),
     }  # fmt: skip

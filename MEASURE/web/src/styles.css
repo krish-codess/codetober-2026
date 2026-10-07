@@ -1,0 +1,414 @@
+/* Chrome (notices, admin) follows the system theme. The story is always on its own dark stage.
+   Contrast, checked against WCAG AA: body text is >= 7:1 in both themes, accents on the stage >= 8:1. */
+:root {
+  --bg: #f7f5ff;
+  --fg: #1a1630;
+  --muted: #4a4660;
+  --line: #cfc9e6;
+  --action: #4326c4;
+  --action-fg: #ffffff;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0b1e;
+    --fg: #ffffff;
+    --muted: #c4c0d6;
+    --line: #3a3558;
+    --action: #c8b6ff;
+    --action-fg: #0e0b1e;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+button,
+.button,
+input {
+  font: inherit;
+  min-height: 44px; /* touch target */
+  border-radius: 999px;
+  padding: 0 1.1rem;
+}
+button,
+.button {
+  border: 2px solid var(--action);
+  background: transparent;
+  color: var(--action);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+button.primary,
+button[type="submit"] {
+  background: var(--action);
+  color: var(--action-fg);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.link,
+button.quiet {
+  border: 0;
+  min-height: 0;
+  padding: 0;
+  text-decoration: underline;
+}
+:focus-visible {
+  outline: 3px solid var(--action);
+  outline-offset: 3px;
+}
+input {
+  border: 2px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  width: 100%;
+}
+progress {
+  width: 100%;
+  height: 10px;
+  accent-color: var(--action);
+}
+.fine {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- notices: landing, loading, empty, error ---- */
+.notice {
+  min-height: 100dvh;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.notice h1 {
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  margin: 0;
+  line-height: 1.1;
+}
+.notice form {
+  display: grid;
+  gap: 0.6rem;
+}
+.notice button {
+  align-self: flex-start;
+}
+
+/* ---- the story ---- */
+.story {
+  --accent: #c8b6ff;
+  --bg: #0e0b1e;
+  --fg: #ffffff;
+  --muted: #c4c0d6;
+  --action: var(--accent);
+  --action-fg: #0e0b1e;
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  padding: max(0.75rem, env(safe-area-inset-top)) 1.25rem max(1rem, env(safe-area-inset-bottom));
+  color: var(--fg);
+  background:
+    radial-gradient(60rem 40rem at 100% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 60%),
+    radial-gradient(40rem 30rem at 0% 100%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%), var(--bg);
+  overflow: hidden;
+  transition: background 0.4s;
+}
+.story[data-family="volume"] { --accent: #ff7a59; }
+.story[data-family="consistency"] { --accent: #3ddc97; }
+.story[data-family="rhythm"] { --accent: #b29cff; }
+.story[data-family="place"] { --accent: #4fc3f7; }
+.story[data-family="breadth"] { --accent: #ffc857; }
+.story[data-family="craft"] { --accent: #ff80a4; }
+.story[data-family="curiosity"] { --accent: #f9f871; }
+.story[data-family="peak"] { --accent: #ff9f1c; }
+.story[data-family="origin"] { --accent: #7bdff2; }
+.story[data-family="community"] { --accent: #9be564; }
+
+.stale {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px dashed var(--fg);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  position: relative;
+  z-index: 2;
+}
+.segments {
+  list-style: none;
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+.segments li {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.28);
+  overflow: hidden;
+}
+.segments li.past {
+  background: var(--fg);
+}
+.segments li i {
+  display: block;
+  height: 100%;
+  background: var(--fg);
+  transform-origin: left;
+  animation: fill linear forwards;
+}
+@keyframes fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.story header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 0 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.brand {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.login {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tap {
+  position: absolute;
+  top: 5rem;
+  bottom: 6rem;
+  z-index: 1;
+}
+.tap.prev { left: 0; width: 30%; }
+.tap.next { right: 0; width: 70%; }
+.card {
+  grid-row: 4;
+  align-self: center;
+  width: min(100%, 44rem);
+  margin: 0 auto;
+  padding: 1.5rem 0;
+}
+.card-body > * {
+  margin: 0;
+}
+.family {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.card h2 {
+  font-size: clamp(1.35rem, 4.6vw, 2.1rem);
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  outline: none;
+}
+.value {
+  font-size: clamp(2.6rem, 15vw, 8rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+  margin-top: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.unit {
+  color: var(--accent);
+  font-size: clamp(1.1rem, 4vw, 1.8rem);
+  font-weight: 600;
+}
+.body {
+  font-size: clamp(1.05rem, 3.4vw, 1.4rem);
+  margin-top: 1.1rem;
+  max-width: 34ch;
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  margin-top: 1.1rem;
+}
+.stats div {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.stats dd {
+  margin: 0;
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 800;
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.claim {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 1.5rem;
+}
+.claim strong {
+  align-self: flex-start;
+  background: var(--accent);
+  color: #0e0b1e;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  font-size: clamp(1rem, 3.6vw, 1.3rem);
+  font-weight: 800;
+}
+.claim span {
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding-left: 0.2rem;
+}
+.controls {
+  grid-row: 5;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.count {
+  min-width: 3.5rem;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- share sheet ---- */
+.sheet {
+  width: min(94vw, 40rem);
+  border: 2px solid var(--line, #3a3558);
+  border-radius: 20px;
+  padding: 1.25rem;
+  background: #17132b;
+  color: #fff;
+}
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.7);
+}
+.sheet h2 {
+  margin: 0 0 0.75rem;
+}
+.sheet .preview {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+}
+.sheet .preview.pending {
+  opacity: 0.25;
+}
+.progress-line {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+}
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0.5rem;
+}
+.share-url {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.share-url a,
+.sheet .quiet {
+  color: #c8b6ff;
+}
+
+/* ---- admin ---- */
+.admin {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+.admin form {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 24rem;
+}
+.admin section {
+  overflow-x: auto;
+}
+.admin table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin th,
+.admin td {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.admin .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.admin .bar {
+  display: inline-block;
+  height: 0.7rem;
+  max-width: 12rem;
+  margin-right: 0.5rem;
+  background: var(--action);
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+@media (max-width: 430px) {
+  .controls {
+    gap: 0.3rem;
+  }
+  .controls button {
+    padding: 0 0.7rem;
+    font-size: 0.9rem;
+  }
+  .count {
+    min-width: 2.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story {
+    transition: none;
+  }
+}

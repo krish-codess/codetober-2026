@@ -1,0 +1,16 @@
+**
+!pyproject.toml
+!alembic.ini
+!wrapped/**
+!dbt/**
+!migrations/**
+!deploy/nginx.conf
+!web/package.json
+!web/package-lock.json
+!web/index.html
+!web/tsconfig.json
+!web/vite.config.ts
+!web/src/**
+**/__pycache__
+dbt/target
+dbt/logs

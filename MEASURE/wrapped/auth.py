@@ -35,7 +35,7 @@ def verify(secret: str, token: str, now: float | None = None) -> Claims | None:
     body, _, sig = token.partition(".")
     if not body or not sig or len(token) > 512:
         return None
-    if not hmac.compare_digest(_sign(secret, body), sig):
+    if not hmac.compare_digest(_sign(secret, body).encode(), sig.encode()):  # bytes: a non-ASCII token must not raise
         return None
     try:
         decoded = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)).decode()

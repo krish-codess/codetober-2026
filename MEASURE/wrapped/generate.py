@@ -62,14 +62,15 @@ ACTIONS = {
 }
 REF_TYPES = ["branch", "branch", "branch", "repository", "tag"]
 
-# (login, github id, share of human event volume). The last two are automation that does not label itself.
+# (login, account id, share of human event volume). The four labelled bots keep their well-known public ids;
+# the last two are invented accounts standing in for automation that does not label itself.
 BOTS = [
     ("github-actions[bot]", 41898282, 0.150),
     ("dependabot[bot]", 49699333, 0.025),
     ("renovate[bot]", 29139614, 0.015),
     ("pull[bot]", 39814207, 0.010),
-    ("mirror-sync-runner", 76443273, 0.030),
-    ("nightly-ci-user", 1775518, 0.012),
+    ("mirror-sync-runner", 990000001, 0.030),
+    ("nightly-ci-user", 990000002, 0.012),
 ]
 
 # Defect rates per emitted event.

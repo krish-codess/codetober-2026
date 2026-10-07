@@ -23,6 +23,7 @@ import psycopg
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
 from psycopg.rows import dict_row
@@ -348,7 +349,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         with db() as conn:
             row = load_story(conn, user.user_id)
         etag = f'"{row["run_id"].hex}-{user.user_id}"'
-        headers = {"ETag": etag, "Cache-Control": "private, max-age=300"}
+        # no-cache = "store it, but ask me before reusing it". With a max-age the browser would replay this
+        # response to whoever opens the next personal link on the same device, whatever their token.
+        headers = {"ETag": etag, "Cache-Control": "private, no-cache", "Vary": "Authorization"}
         if if_none_match == etag:
             return Response(status_code=304, headers=headers)
         response.headers.update(headers)
@@ -373,7 +376,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return Response(status_code=204)
 
-    @app.post("/v1/wrapped/shares", tags=["story"], response_model=ShareResponse, responses=_errors(401, 404, 409, 422, 503),
+    @app.post("/v1/wrapped/shares", tags=["story"], response_model=ShareResponse,
+              responses={200: {"description": "This card was already shared; the existing share"}, 201: {"model": ShareResponse, "description": "Share created"}, **_errors(401, 404, 409, 422, 503)},
               summary="Share one card. Retrying returns the same share.")  # fmt: skip
     def create_share(body: ShareRequest, response: Response, user: auth.Claims = Depends(current_user)) -> Any:
         with db() as conn:
@@ -543,5 +547,22 @@ a{{color:#c8b6ff}}</style></head>
         return {"items": page,
                 "next_cursor": base64.urlsafe_b64encode(str(page[-1]["user_id"]).encode()).decode() if more else None}  # fmt: skip
 
+    def openapi() -> dict[str, Any]:
+        """The generated document, with validation failures described in the shape this API actually returns."""
+        if app.openapi_schema is None:
+            schema = get_openapi(title=app.title, version=app.version, description=app.description, routes=app.routes)
+            for operations in schema["paths"].values():
+                for operation in operations.values():
+                    if "422" in operation["responses"]:
+                        operation["responses"]["422"] = {
+                            "description": "The request did not match the contract",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorBody"}}},
+                        }
+            for unused in ("HTTPValidationError", "ValidationError"):
+                schema["components"]["schemas"].pop(unused, None)
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
     assert all(re.fullmatch(CARD_TYPE_PATTERN, name) for name in CARD_TYPES)
     return app

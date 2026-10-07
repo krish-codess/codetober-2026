@@ -83,6 +83,13 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("run-all", help="ingest, transform, build, audit, publish: the whole batch, in order")
     p.add_argument("--no-publish", action="store_true")
 
+    p = sub.add_parser("profile", help="profile the raw files and write the data profile document")
+    p.add_argument("--out", type=Path, default=REPO_ROOT / "docs" / "data-profile.md")
+
+    p = sub.add_parser("seed", help="first-run bootstrap: generate a year if there is no raw data, then run-all")
+    p.add_argument("--users", type=int, default=20_000)
+    p.add_argument("--seed", type=int, default=2025)
+
     p = sub.add_parser("links", help="print personal links for a few users of each tier (what a product would email)")
     p.add_argument("--per-tier", type=int, default=2)
     p.add_argument("--user-id", type=int, help="print the link for one specific user instead")
@@ -125,6 +132,28 @@ def main(argv: list[str] | None = None) -> None:
         _timed(settings, "ingest", lambda: ingest(settings))
     elif args.command == "transform":
         print(_timed(settings, "transform", lambda: transform(settings, args.full_refresh)))
+    elif args.command == "profile":
+        from wrapped.profile import profile
+
+        args.out.write_text(profile(settings.raw_dir) + "\n", encoding="utf-8")
+        print(f"wrote {args.out}")
+    elif args.command == "seed":
+        from wrapped.generate import generate
+
+        if not any(settings.raw_dir.glob("*.json.gz")):
+            _timed(
+                settings,
+                "generate",
+                lambda: generate(
+                    settings.raw_dir,
+                    args.users,
+                    settings.year,
+                    args.seed,
+                    settings.data_dir / "tmp",
+                    settings.duckdb_memory,
+                ),
+            )
+        run_batch(settings, "run-all")
     elif args.command in ("build", "audit", "publish", "run-all"):
         run_batch(settings, args.command, publish_after=not getattr(args, "no_publish", False))
     elif args.command == "migrate":

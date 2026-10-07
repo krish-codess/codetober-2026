@@ -54,6 +54,8 @@ extend-immutable-calls = ["fastapi.Depends"]
 "wrapped/cards.py" = ["E501"]
 # Route declarations and user-facing messages are kept on one line.
 "wrapped/api.py" = ["E501"]
+"wrapped/profile.py" = ["E501"]
+"scripts/*" = ["E501", "S608"]
 "wrapped/publish.py" = ["E501"]
 
 [tool.mypy]
