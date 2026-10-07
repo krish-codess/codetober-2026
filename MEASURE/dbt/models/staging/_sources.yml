@@ -1,0 +1,40 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: Parquet written by `wrapped ingest`. One file per ingest batch; never rewritten.
+    tables:
+      - name: events
+        description: Every raw line that passed boundary validation. May contain the same event more than once.
+        meta:
+          external_location: "read_parquet('{{ env_var('WRAPPED_DATA_DIR') }}/bronze/*.parquet')"
+        columns:
+          - name: event_id
+            data_tests: [not_null]
+          - name: actor_id
+            data_tests: [not_null]
+          - name: created_at
+            data_tests: [not_null]
+      - name: quarantine
+        description: Raw lines that failed validation, with the reason. Kept, never dropped.
+        meta:
+          external_location: "read_parquet('{{ env_var('WRAPPED_DATA_DIR') }}/quarantine/*.parquet')"
+        columns:
+          - name: reject_reason
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [malformed_json, missing_event_id, missing_actor, missing_type, unparseable_timestamp, timestamp_out_of_range]
+      - name: manifest
+        description: One row per raw source file per ingest attempt, with line counts.
+        meta:
+          external_location: "read_parquet('{{ env_var('WRAPPED_DATA_DIR') }}/manifest/*.parquet')"
+        columns:
+          - name: source_file
+            data_tests: [not_null]
+          - name: status
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [ingested, rejected]

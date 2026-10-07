@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: stg_gharchive__events
+    description: Validated events with product activity names. Still contains redelivered duplicates.
+    columns:
+      - name: event_id
+        description: Upstream event id. Not unique here; see int_events__deduped.
+        data_tests: [not_null]
+      - name: activity
+        description: What the event means to the product.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [push, pr_opened, review, issue_opened, comment, star, fork, release, repo_created, other]
+      - name: user_id
+        description: Upstream actor id. The identity of a user; logins change.
+        data_tests: [not_null]
+      - name: occurred_at
+        description: When the event happened, UTC.
+        data_tests: [not_null]
+      - name: activity_date
+        description: UTC calendar date of occurred_at.
+        data_tests: [not_null]
+      - name: batch_id
+        description: Ingest batch that delivered the line. Increases over time; the incremental watermark.
+        data_tests: [not_null]

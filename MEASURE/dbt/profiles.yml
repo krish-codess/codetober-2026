@@ -1,0 +1,14 @@
+# Everything comes from the environment; `wrapped transform` sets these from its own settings.
+wrapped:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('WRAPPED_WAREHOUSE_PATH') }}"
+      threads: 1
+      settings:
+        memory_limit: "{{ env_var('WRAPPED_DUCKDB_MEMORY', '1GB') }}"
+        threads: "{{ env_var('WRAPPED_DUCKDB_THREADS', '4') | int }}"
+        temp_directory: "{{ env_var('WRAPPED_DATA_DIR') }}/tmp"
+        preserve_insertion_order: false
+        TimeZone: UTC
