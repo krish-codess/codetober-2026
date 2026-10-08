@@ -1,0 +1,52 @@
+[
+  {
+    "name": "rpi5",
+    "label": "Raspberry Pi 5 (4x Cortex-A76)",
+    "arch": "aarch64",
+    "runtimes": ["onnxruntime"],
+    "threads": 4,
+    "budget_p95_ms": 50,
+    "power_sensor": "pmic (vcgencmd pmic_read_adc)",
+    "max_model_mb": null
+  },
+  {
+    "name": "rpi4",
+    "label": "Raspberry Pi 4 (4x Cortex-A72)",
+    "arch": "aarch64",
+    "runtimes": ["onnxruntime"],
+    "threads": 4,
+    "budget_p95_ms": 100,
+    "power_sensor": "external: INA219 via hwmon, or --power cmd:<meter>",
+    "max_model_mb": null
+  },
+  {
+    "name": "jetson-orin-nano",
+    "label": "Jetson Orin Nano (TensorRT through ONNX Runtime)",
+    "arch": "aarch64",
+    "runtimes": ["onnxruntime"],
+    "threads": 0,
+    "budget_p95_ms": 10,
+    "power_sensor": "hwmon (ina3221)",
+    "max_model_mb": null
+  },
+  {
+    "name": "x86-laptop",
+    "label": "Laptop, Core i5-11320H (4 cores, AVX-512 VNNI)",
+    "arch": "x86_64",
+    "runtimes": ["onnxruntime", "openvino"],
+    "threads": 4,
+    "budget_p95_ms": 15,
+    "power_sensor": "battery gauge (only while discharging)",
+    "max_model_mb": null
+  },
+  {
+    "name": "ci",
+    "label": "GitHub-hosted runner (x86-64 and arm64), small models only",
+    "arch": "any",
+    "runtimes": ["onnxruntime"],
+    "threads": 2,
+    "budget_p95_ms": null,
+    "power_sensor": "none",
+    "max_model_mb": 10
+  }
+]
