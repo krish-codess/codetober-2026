@@ -24,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("pipeline", help="run or resume the optimisation pipeline")
     p.add_argument("--smoke", action="store_true", help="tiny configuration, for checking the plumbing")
+    p.add_argument("--reuse", metavar="RUN_ID", help="copy student-independent steps from this earlier run")
 
     p = sub.add_parser("package", help="build deployment packages from a pipeline run")
     p.add_argument("--target", action="append", help="target name (default: all)")
@@ -77,7 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         from . import data, pipeline
 
         ds = data.load(cfg.data_dir / "dataset")
-        record = pipeline.execute(pipeline.SMOKE if args.smoke else pipeline.Config(), ds, cfg.data_dir / "runs")
+        chosen = pipeline.SMOKE if args.smoke else pipeline.Config()
+        record = pipeline.execute(chosen, ds, cfg.data_dir / "runs", args.reuse)
         if not args.smoke:
             cfg.raw_dir.mkdir(parents=True, exist_ok=True)
             (cfg.raw_dir / f"pipeline-{record['run_id']}.json").write_text(json.dumps(record, indent=1))

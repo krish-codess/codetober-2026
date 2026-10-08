@@ -12,6 +12,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+import shutil
 import subprocess
 import time
 from collections.abc import Callable
@@ -31,13 +32,13 @@ class Config:
     size: int = 160
     pretrained: bool = True
     seed: int = 0
-    n_train: int = 4000  # images the students are fine-tuned on (teacher logits are cached for these)
+    n_train: int = 8000  # images the students are fine-tuned on (teacher logits are cached for these)
     n_prune_ft: int = 1500  # images a pruned teacher is fine-tuned on
     n_dev: int = 400  # dev images used for every choice made during quantization
     n_calib: int = 128
     prune_ratios: tuple[float, ...] = (0.3, 0.5)
-    student_epochs: int = 3
-    student_lr: float = 0.005
+    student_epochs: int = 4
+    student_lr: float = 0.01
     prune_epochs: int = 2
     prune_lr: float = 0.01
     temperature: float = 4.0
@@ -228,7 +229,34 @@ def _baselines(run: Run) -> list[dict[str, Any]]:
     return out
 
 
-def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
+# Steps that do not read any student-training setting. When only those settings change between two
+# runs, these steps would recompute bit-identical results, so `reuse` may copy them instead.
+STUDENT_INDEPENDENT = ("teacher-r50", "r50-int8", "r50-prune*-raw", "r50-prune??", "r50-prune??-int8")
+STUDENT_SETTINGS = {"n_train", "student_epochs", "student_lr", "temperature", "alpha"}
+
+
+def reuse_steps(run: Run, other: Path) -> list[str]:
+    """Copy finished student-independent steps from another run of the same dataset. Refuses if
+    the two runs differ in anything those steps depend on."""
+    theirs = json.loads((other / "run.json").read_text())
+    mine = dataclasses.asdict(run.cfg)
+    changed = {k for k in mine if json.loads(json.dumps(mine[k])) != theirs["config"].get(k)}
+    if theirs["dataset"]["version"] != run.ds.version or not changed <= STUDENT_SETTINGS:
+        raise ValueError(f"cannot reuse {other.name}: dataset or non-student settings differ ({sorted(changed)})")
+    copied = []
+    for pattern in STUDENT_INDEPENDENT:
+        for step in sorted((other / "steps").glob(f"{pattern}.json")):
+            name = step.stem
+            if (run.dir / "steps" / step.name).exists():
+                continue
+            shutil.copy(other / f"{name}.onnx", run.dir / f"{name}.onnx")
+            shutil.copy(other / "logits" / f"{name}.npy", run.dir / "logits" / f"{name}.npy")
+            shutil.copy(step, run.dir / "steps" / step.name)  # last: the step record marks completion
+            copied.append(name)
+    return copied
+
+
+def execute(cfg: Config, ds: data.Dataset, runs_dir: Path, reuse: str | None = None) -> dict[str, Any]:
     """Run (or resume) the whole pipeline and return the run record."""
     import torch
 
@@ -236,6 +264,8 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
 
     torch.manual_seed(cfg.seed)
     run = Run(cfg, ds, runs_dir)
+    reused = reuse_steps(run, runs_dir / reuse) if reuse else []
+    logger.info("reused from %s: %s", reuse, reused)
     images, labels = ds.images, ds.labels
 
     def export_and_verify(net: Any, name: str, **kw: Any) -> dict[str, Any]:
@@ -453,6 +483,9 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
     import onnxruntime
     import torchvision
 
+    for v in run.variants.values():
+        if v["name"] in reused:
+            v["detail"]["reused_from_run"] = reuse
     record = {
         "schema": 1,
         "kind": "pipeline",

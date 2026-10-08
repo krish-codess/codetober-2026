@@ -6,6 +6,8 @@ on:
     paths: ["VISION/**", ".github/workflows/vision.yml"]
   pull_request:
     paths: ["VISION/**", ".github/workflows/vision.yml"]
+  # Manual: the full optimisation pipeline (downloads the dataset, trains, builds every package).
+  workflow_dispatch:
 
 defaults:
   run:
@@ -21,8 +23,123 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: VISION/pyproject.toml
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[ml,dev]" --extra-index-url https://download.pytorch.org/whl/cpu
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy
+      - name: API reference is generated from the code and committed
+        run: |
+          python -m squeeze openapi /tmp/openapi.json
+          diff -u docs/openapi.json /tmp/openapi.json
+      # Includes the training smoke test, the inference contract, reproducible packaging, and the
+      # device harness uploading to a real API process.
       - run: pytest -ra
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: VISION/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: VISION/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Benchmark regression gate, on real x86-64 and real arm64 (the Pi's instruction set, not an
+  # emulator). It runs the committed package exactly as a board would: unpack, run the harness.
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -e . numpy onnxruntime
+      - name: Unpack the package and run the harness that ships inside it
+        run: |
+          mkdir /tmp/pkg && tar -xzf release/squeeze-ci-*.tar.gz -C /tmp/pkg --strip-components=1
+          python /tmp/pkg/edge_bench.py --package /tmp/pkg --threads 2 --runs 300 --power none --out /tmp/results.jsonl
+      - name: Fail on an accuracy or relative-latency regression against release/baseline.json
+        run: python -m squeeze regress /tmp/results.jsonl
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: bench-${{ matrix.runner }}
+          path: /tmp/results.jsonl
+
+  # The same gate on the actual board, for repositories that have registered one as a runner
+  # (set the repository variable PI_RUNNER=true). Power comes from the board's own sensor.
+  bench-device:
+    if: vars.PI_RUNNER == 'true'
+    runs-on: [self-hosted, rpi]
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          rm -rf /tmp/pkg && mkdir /tmp/pkg && tar -xzf release/squeeze-ci-*.tar.gz -C /tmp/pkg --strip-components=1
+          python3 /tmp/pkg/edge_bench.py --package /tmp/pkg --target rpi5 --threads 4 --out /tmp/results.jsonl
+          python3 -m squeeze regress /tmp/results.jsonl
+
+  # The whole system from a clean clone with the documented command, checked from outside and
+  # driven through a browser.
+  stack:
+    runs-on: ubuntu-latest
+    needs: [backend, web]
+    steps:
+      - uses: actions/checkout@v5
+      - run: sed "s/CHANGE_ME/ci-$(openssl rand -hex 16)/" .env.example > .env
+      - run: docker compose up --build --wait --wait-timeout 600
+      - run: bash deploy/verify.sh http://localhost:8080
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: VISION/web/package-lock.json
+      - working-directory: VISION/web
+        env:
+          SQUEEZE_E2E_BASE_URL: http://localhost:8080
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - if: failure()
+        run: docker compose logs --no-color | tail -200
+
+  # Deployment target: the optimisation pipeline in CI, producing the per-device packages.
+  pipeline:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      SQUEEZE_DATA_DIR: /tmp/squeeze
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[ml]" --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Dataset (pinned by checksum)
+        run: |
+          mkdir -p /tmp/squeeze/raw
+          curl -sSfL --retry 5 --retry-delay 5 -o /tmp/imagenette.tgz https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-160.tgz
+          echo "64d0c4859f35a461889e0147755a999a48b49bf38a7e0f9bd27003f10db02fe5  /tmp/imagenette.tgz" | sha256sum -c -
+          tar -xzf /tmp/imagenette.tgz -C /tmp/squeeze/raw
+      - run: python -m squeeze data /tmp/squeeze/raw/imagenette2-160
+      - run: python -m squeeze pipeline
+      - run: python -m squeeze package
+      - uses: actions/upload-artifact@v5
+        with:
+          name: packages
+          path: |
+            /tmp/squeeze/packages/
+            VISION/results/raw/pipeline-*.json

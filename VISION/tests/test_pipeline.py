@@ -89,3 +89,17 @@ def test_packages_are_byte_reproducible_and_self_verifying(smoke_run, tmp_path):
         assert hashlib.sha256((pkg / name).read_bytes()).hexdigest() == digest
     small = {v["name"] for v in record["variants"] if v["size_bytes"] < 10 * 2**20}
     assert {v["name"] for v in manifest["variants"]} == small
+
+
+def test_reuse_copies_only_what_cannot_have_changed(smoke_run):
+    import dataclasses
+
+    root, ds, record = smoke_run
+    longer = dataclasses.replace(pipeline.SMOKE, student_epochs=2)
+    run = pipeline.Run(longer, ds, root / "runs")
+    copied = pipeline.reuse_steps(run, root / "runs" / record["run_id"])
+    assert copied == ["teacher-r50", "r50-int8", "r50-prune50-raw", "r50-prune50", "r50-prune50-int8"]
+    assert not (run.dir / "steps" / "student-kd.json").exists()  # the student must be retrained
+    other = pipeline.Run(dataclasses.replace(pipeline.SMOKE, prune_epochs=2), ds, root / "runs")
+    with pytest.raises(ValueError, match="prune_epochs"):
+        pipeline.reuse_steps(other, root / "runs" / record["run_id"])

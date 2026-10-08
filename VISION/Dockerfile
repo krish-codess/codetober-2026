@@ -13,7 +13,7 @@ COPY squeeze/__init__.py squeeze/__init__.py
 RUN pip install --no-cache-dir --prefix=/install .
 
 FROM python:3.11-slim
-ENV PYTHONUNBUFFERED=1 SQUEEZE_DB=/var/lib/squeeze/squeeze.db SQUEEZE_RAW_DIR=/var/lib/squeeze/raw \
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 SQUEEZE_DB=/var/lib/squeeze/squeeze.db SQUEEZE_RAW_DIR=/var/lib/squeeze/raw \
     SQUEEZE_PACKAGES_DIR=/app/release SQUEEZE_WEB_DIR=/app/web
 RUN useradd --system --uid 10001 squeeze && mkdir -p /var/lib/squeeze && chown squeeze /var/lib/squeeze
 COPY --from=deps /install /usr/local
