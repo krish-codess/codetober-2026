@@ -9,7 +9,7 @@ import logging
 import shutil
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -69,18 +69,38 @@ def run_identity(settings: Settings, con: duckdb.DuckDBPyConnection) -> tuple[uu
     return uuid.uuid5(RUN_NAMESPACE, name), fingerprint
 
 
-_USERS_WITH_RANKS = """
-SELECT u.*, r.ranks
-FROM mart_user_year u
-LEFT JOIN (
-    SELECT user_id, list({'metric': metric, 'users_at_or_above': users_at_or_above, 'population': population}) AS ranks
-    FROM mart_user_ranks GROUP BY user_id
-) r USING (user_id)
-"""
+# Per-user inputs are read as sorted streams and merged here, never joined or list-aggregated in the
+# database: memory stays flat however many users there are, which is what lets 200,000 users run in 1 GB.
+_USERS = "SELECT * FROM mart_user_year ORDER BY user_id"
+_RANKS = "SELECT user_id, metric, users_at_or_above, population FROM mart_user_ranks ORDER BY user_id"
 
 
-def _ranks(row: dict[str, Any]) -> dict[str, Rank]:
-    return {r["metric"]: Rank(int(r["users_at_or_above"]), int(r["population"])) for r in row.pop("ranks") or []}
+def _by_user(con: duckdb.DuckDBPyConnection, sql: str) -> Callable[[int], list[tuple[Any, ...]]]:
+    """Turn a query sorted by its first column (user_id) into `take(user_id)`, for ids asked in increasing order."""
+    cur = con.cursor().execute(sql)
+    buffer: list[tuple[Any, ...]] = []
+    position = 0
+
+    def take(user_id: int) -> list[tuple[Any, ...]]:
+        nonlocal buffer, position
+        out: list[tuple[Any, ...]] = []
+        while True:
+            if position == len(buffer):
+                buffer, position = cur.fetchmany(CHUNK * 4), 0
+                if not buffer:
+                    return out
+            row = buffer[position]
+            if row[0] > user_id:
+                return out
+            if row[0] == user_id:
+                out.append(row[1:])
+            position += 1
+
+    return take
+
+
+def _ranks(rows: list[tuple[Any, ...]]) -> dict[str, Rank]:
+    return {metric: Rank(int(at_or_above), int(population)) for metric, at_or_above, population in rows}
 
 
 def build(settings: Settings) -> dict[str, Any]:
@@ -103,8 +123,9 @@ def build(settings: Settings) -> dict[str, Any]:
         users = 0
         ndjson = out_dir / "payloads.ndjson.gz"
         with gzip.open(ndjson, "wt", encoding="utf-8", compresslevel=1) as out:
-            for row in _dicts(con.execute(_USERS_WITH_RANKS)):
-                payload = cards.build_payload(row, _ranks(row), population)
+            ranks_of = _by_user(con, _RANKS)
+            for row in _dicts(con.cursor().execute(_USERS)):
+                payload = cards.build_payload(row, _ranks(ranks_of(row["user_id"])), population)
                 tiers[payload["tier"]] = tiers.get(payload["tier"], 0) + 1
                 users += 1
                 record = {
@@ -176,23 +197,27 @@ def superlative_distribution(con: duckdb.DuckDBPyConnection, payloads: Path) -> 
     }
 
 
-_AUDIT_SQL = """
-WITH exact AS (
-    -- The expensive, exact standing: a full sort per metric. Verification only; the pipeline never does this.
+# The expensive, exact standing: a full sort per metric. Verification only; the pipeline never does this.
+_EXACT = """
+SELECT user_id, metric, at_or_above FROM (
     SELECT user_id, metric, count(*) OVER (PARTITION BY metric ORDER BY value DESC) AS at_or_above
     FROM mart_metric_values
-), exact_lists AS (
-    SELECT user_id, list({'metric': metric, 'at_or_above': at_or_above}) AS exact FROM exact GROUP BY user_id
-), published AS (
-    SELECT user_id, list({'metric': metric, 'users_at_or_above': users_at_or_above, 'population': population}) AS ranks
-    FROM mart_user_ranks GROUP BY user_id
-)
-SELECT u.*, p.ranks, e.exact, s.payload
-FROM mart_user_year u
-LEFT JOIN published p USING (user_id)
-LEFT JOIN exact_lists e USING (user_id)
-FULL JOIN read_parquet(?) s USING (user_id)
+) ORDER BY user_id
 """
+
+
+def _stored_payloads(con: duckdb.DuckDBPyConnection, parquet: Path) -> Iterator[tuple[int, str]]:
+    """Payloads in file order, which `build` wrote sorted by user id. Streamed: the payload text of a whole
+    population does not fit in a join's hash table on a small machine, so the audit merges two sorted streams."""
+    con.execute("SET preserve_insertion_order = true")
+    cur = con.cursor().execute("SELECT user_id, payload FROM read_parquet(?)", [str(parquet)])
+    last = -1
+    while rows := cur.fetchmany(CHUNK):
+        for user_id, payload in rows:
+            if user_id <= last:
+                raise RuntimeError(f"{parquet} is not sorted by user_id; rebuild the run")
+            last = user_id
+            yield user_id, payload
 
 
 def audit(settings: Settings, max_reported: int = 20) -> dict[str, Any]:
@@ -216,13 +241,21 @@ def audit(settings: Settings, max_reported: int = 20) -> dict[str, Any]:
         pop_exact = con.execute("SELECT count(*), count(weekend_share) FROM mart_user_year").fetchone()
         assert pop_exact is not None
         parquet = settings.payload_dir / str(run_id) / "payloads.parquet"
-        for row in _dicts(con.execute(_AUDIT_SQL, [str(parquet)])):
-            stored, exact = row.pop("payload"), {e["metric"]: int(e["at_or_above"]) for e in row.pop("exact") or []}
-            if stored is None or row["events"] is None:
-                fail(row["user_id"], "coverage", "user without payload" if stored is None else "payload without user")
+        stored_stream = _stored_payloads(con, parquet)
+        pending = next(stored_stream, None)
+        ranks_of, exact_of = _by_user(con, _RANKS), _by_user(con, _EXACT)
+        for row in _dicts(con.cursor().execute(_USERS)):
+            ranks = _ranks(ranks_of(row["user_id"]))
+            exact = {metric: int(at_or_above) for metric, at_or_above in exact_of(row["user_id"])}
+            while pending is not None and pending[0] < row["user_id"]:
+                fail(pending[0], "coverage", "payload without user")
+                pending = next(stored_stream, None)
+            if pending is None or pending[0] != row["user_id"]:
+                fail(row["user_id"], "coverage", "user without payload")
                 continue
+            stored = pending[1]
+            pending = next(stored_stream, None)
             payloads += 1
-            ranks = _ranks(row)
             if dumps(cards.build_payload(row, ranks, population)) != stored:
                 fail(row["user_id"], "reproducible", "stored payload differs from a rebuild")
             for card in json.loads(stored)["cards"]:
@@ -249,6 +282,9 @@ def audit(settings: Settings, max_reported: int = 20) -> dict[str, Any]:
                              f"{true_population} are at or above")  # fmt: skip
                     if ranks[metric].users_at_or_above < settings.k_anonymity:
                         fail(row["user_id"], "k-anonymity", f"{metric}: group of {ranks[metric].users_at_or_above}")
+        while pending is not None:
+            fail(pending[0], "coverage", "payload without user")
+            pending = next(stored_stream, None)
     finally:
         con.close()
     result = {

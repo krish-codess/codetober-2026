@@ -500,9 +500,11 @@ a{{color:#c8b6ff}}</style></head>
             if run is None:
                 raise ApiError(404, "no_active_run", "No run has been published yet.")
             rows = conn.execute(
-                """SELECT c.card_type, t.family, count(*) AS users
-                   FROM payload_cards c JOIN card_types t USING (card_type)
-                   WHERE c.run_id = %s GROUP BY c.card_type, t.family ORDER BY users DESC, c.card_type""",
+                # Aggregate first, then join the 21 catalogue rows: joining first put a million rows through a hash join.
+                """SELECT c.card_type, t.family, c.users
+                   FROM (SELECT card_type, count(*) AS users FROM payload_cards WHERE run_id = %s GROUP BY card_type) c
+                   JOIN card_types t USING (card_type)
+                   ORDER BY c.users DESC, c.card_type""",
                 [run["run_id"]],
             ).fetchall()
         total = max(run["user_count"], 1)
@@ -537,9 +539,13 @@ a{{color:#c8b6ff}}</style></head>
             raise ApiError(422, "invalid_cursor", "The cursor is not one this API issued.") from exc
         with db() as conn:
             rows = conn.execute(
+                # The run id is a scalar subquery, not a join: with a constant run_id the planner walks the
+                # primary key in order and stops after `limit` rows. As a join it sorted the whole run
+                # (643 ms -> see docs/evidence/explain-analyze.md).
                 """SELECT p.user_id, p.login, p.tier
-                   FROM active_runs a JOIN wrapped_payloads p ON p.run_id = a.run_id
-                   WHERE a.year = %s AND p.user_id > %s ORDER BY p.user_id LIMIT %s""",
+                   FROM wrapped_payloads p
+                   WHERE p.run_id = (SELECT run_id FROM active_runs WHERE year = %s) AND p.user_id > %s
+                   ORDER BY p.user_id LIMIT %s""",
                 [settings.year, after, limit + 1],
             ).fetchall()
         page = rows[:limit]

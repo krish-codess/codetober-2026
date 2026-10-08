@@ -164,11 +164,26 @@ and is rebuilt from the immutable raw files.
 ## 13. Deliberately not built
 
 - **A cloud deployment.** No cloud credentials were available to this build. The deployment that
-  exists is the compose stack; CI brings it up from a clean clone, verifies it from outside, drives
-  it through a browser and performs the rollback drill. See the limitations in the README.
+  exists is the compose stack, and it has not been run: Docker would not start on the build machine.
+  The CI workflow runs it end to end once pushed. See the limitations in the README.
 - **Rate limiting.** Belongs at the edge; noted as a gap.
 - **Pre-rendering every user's share cards.** Rendering costs tens of milliseconds and most cards
   are never shared; they are rendered at share time and cached by URL.
 - **Per-user timezone inference**, **an LLM writing the copy** (unverifiable text is the opposite of
   the brief), **email delivery of links** (`wrapped links` prints what would be sent).
 - **Horizontal scaling of the batch.** See "what breaks first" in the README.
+
+## 14. An index removed, because the plan said so
+
+The first schema had `payload_cards (run_id, card_type)` for the superlative-distribution query. On
+200,000 payloads the planner never chose it: one run is most of the table, so a sequential scan is
+correct, and timings with and without it were the same. It was dropped in migration 0003 rather than
+kept as decoration. The same EXPLAIN pass showed the pagination query sorting the whole run because
+its run id arrived through a join; as a scalar subquery it walks the primary key (588 ms to 0.3 ms).
+
+## 15. Build and audit merge sorted streams instead of joining in the database
+
+At 200,000 users, list-aggregating ranks per user and joining payload text in DuckDB exceeded the
+1 GB cap. Both stages now read `ORDER BY user_id` cursors and merge them in Python. Memory is flat in
+the number of users; the cost is that correctness depends on every stream being sorted, which the
+payload reader checks and fails loudly on.

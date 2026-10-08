@@ -174,7 +174,7 @@ below the lowest published threshold for that metric.
 | `active_runs` | `year` | `run_id` FK; `previous_run_id` FK nullable; `activated_at` | Which run is served. Check: previous differs from current. |
 | `card_types` | `card_type` text | `family` text; `shareable` boolean | Written from the code's catalogue at publish. |
 | `wrapped_payloads` | (`run_id`, `user_id`) | `login` text non-empty; `tier` `full`/`light`/`minimal`; `payload` jsonb object | `run_id` FK, cascade. `user_id` > 0. |
-| `payload_cards` | (`run_id`, `user_id`, `position`) | `card_type` FK | FK to the payload, cascade. Unique (`run_id`, `user_id`, `card_type`). Indexed (`run_id`, `card_type`). |
+| `payload_cards` | (`run_id`, `user_id`, `position`) | `card_type` FK | FK to the payload, cascade. Unique (`run_id`, `user_id`, `card_type`). No secondary index (one was measured, found unused, and dropped in migration 0003). |
 | `card_views` | (`user_id`, `year`, `card_type`) | `first_viewed_at` | The key makes recording a view idempotent. |
 | `shares` | `share_id` text, 22+ chars | `user_id`; `year`; `card_type` FK; `login`; `card` jsonb object (the snapshot); `source_run_id` uuid; `created_at`; `updated_at` | Unique (`user_id`, `year`, `card_type`). `source_run_id` is deliberately not a foreign key: a share outlives its run. |
 
