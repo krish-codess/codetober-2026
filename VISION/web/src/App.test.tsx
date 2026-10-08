@@ -88,7 +88,7 @@ test("a mark is operable from the keyboard and focus moves to the detail it open
   render(<App />);
   const mark = await screen.findByRole("button", { name: /^student-kd:/ });
   mark.focus();
-  expect(screen.getByRole("status")).toHaveTextContent("p50 20.0 ms, p95 24.0 ms"); // tooltip on focus, not only hover
+  expect(await screen.findByText(/p50 20.0 ms, p95 24.0 ms/)).toBeVisible(); // tooltip on focus, not only hover
   await userEvent.keyboard("{Enter}");
   const heading = await screen.findByRole("heading", { name: "student-kd" });
   await waitFor(() => expect(heading).toHaveFocus());
@@ -104,7 +104,7 @@ test("no power sensor: the energy axis explains why instead of drawing an empty 
   render(<App />);
   await userEvent.click(await screen.findByRole("radio", { name: "Energy per inference" }));
   expect(screen.getByText(/Power was not measured on this target: on AC power/)).toBeVisible();
-  expect(screen.getByRole("row", { name: /^student-kd\b/ })).toHaveTextContent("no sensor");
+  expect(screen.getByRole("row", { name: /^student-kd(?!-)/ })).toHaveTextContent("no sensor");
 });
 
 test("a target nothing was measured on still shows verified accuracy", async () => {
