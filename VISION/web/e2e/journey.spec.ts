@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 // The primary journey on real data: open the explorer, find the frontier on the measured target,
@@ -40,7 +41,7 @@ test("explore the measured tradeoff, inspect a model, download its package", asy
   const href = await ci.getByRole("link", { name: "Download package" }).getAttribute("href");
   const archive = await request.get(href!);
   expect(archive.ok()).toBe(true);
-  const digest = Buffer.from(await crypto.subtle.digest("SHA-256", await archive.body())).toString("hex");
+  const digest = createHash("sha256").update(await archive.body()).digest("hex");
   expect(href).toContain(digest);
   await expect(page.locator("section", { has: page.getByRole("heading", { name: "Raspberry Pi 5" }) })).toContainText("Not hosted on this server");
   await shot("packages");
