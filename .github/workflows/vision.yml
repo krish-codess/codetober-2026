@@ -1,0 +1,28 @@
+name: vision
+
+# GitHub only runs workflows from the repository root, so this lives here and is scoped by path.
+on:
+  push:
+    paths: ["VISION/**", ".github/workflows/vision.yml"]
+  pull_request:
+    paths: ["VISION/**", ".github/workflows/vision.yml"]
+
+defaults:
+  run:
+    working-directory: VISION
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: VISION/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy
+      - run: pytest -ra

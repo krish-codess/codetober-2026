@@ -1,0 +1,18 @@
+# docker compose up --build   ->  http://localhost:8080
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      SQUEEZE_DB: /var/lib/squeeze/squeeze.db
+      SQUEEZE_RAW_DIR: /var/lib/squeeze/raw
+      SQUEEZE_PACKAGES_DIR: /app/release
+    ports: ["${SQUEEZE_PORT:-8080}:8000"]
+    volumes: ["state:/var/lib/squeeze"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+volumes:
+  state:

@@ -1,0 +1,54 @@
+[project]
+name = "squeeze"
+version = "0.1.0"
+description = "Compress a vision model for edge boards and measure the real accuracy, latency and power tradeoff"
+requires-python = ">=3.11"
+# The serving path needs nothing else: it reads SQLite and files.
+dependencies = ["fastapi>=0.115", "uvicorn>=0.30", "pydantic>=2.7"]
+
+[project.optional-dependencies]
+# The optimisation pipeline and the benchmark harness.
+ml = [
+  "numpy>=1.26",
+  "pillow>=10",
+  "torch>=2.4",
+  "torchvision>=0.19",
+  "onnx>=1.16",
+  "onnxruntime>=1.19",
+  "openvino>=2024.4",
+]
+# What CI needs for tests that run real inference but never train on GPU-sized data.
+bench = ["numpy>=1.26", "onnxruntime>=1.19"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6", "mypy>=1.11"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["squeeze"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]
+# The harness shells out to vendor tools (vcgencmd, a user-supplied meter command) by design.
+"device/edge_bench.py" = ["S603", "S607", "S602", "UP"]
+
+[tool.mypy]
+files = ["squeeze", "device"]
+strict = true
+ignore_missing_imports = true
+disallow_untyped_calls = false
+warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["ml: needs torch (training smoke tests)"]
