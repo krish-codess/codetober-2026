@@ -10,7 +10,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from squeeze import models, package, pipeline, quant  # noqa: E402
+from squeeze import config, models, package, pipeline, quant  # noqa: E402
 
 pytestmark = pytest.mark.ml
 
@@ -77,7 +77,7 @@ def test_inference_contract(smoke_run):
 
 def test_packages_are_byte_reproducible_and_self_verifying(smoke_run, tmp_path):
     root, ds, record = smoke_run
-    target = package.targets()["ci"]
+    target = config.targets()["ci"]
     a = package.build(root / "runs" / record["run_id"], ds, target, tmp_path / "a")
     b = package.build(root / "runs" / record["run_id"], ds, target, tmp_path / "b")
     assert a["package_id"] == b["package_id"]

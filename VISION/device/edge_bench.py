@@ -161,11 +161,7 @@ def detect_power(choice: str) -> Tuple[Optional[Callable[[], float]], str]:
     if sys.platform == "win32":
         probes = {"battery": _battery_windows}
     if choice != "auto":
-        return (
-            probes[choice]()
-            if choice in probes
-            else (None, "sensor %r does not exist on this platform" % choice)
-        )
+        return probes[choice]() if choice in probes else (None, "sensor %r does not exist on this platform" % choice)
     reasons = []
     for probe in probes.values():
         sensor, note = probe()
@@ -266,9 +262,7 @@ def device_info() -> Dict[str, Any]:
             cpu = winreg.QueryValueEx(key, "ProcessorNameString")[0].strip()
         except OSError:
             pass
-    machine = {"amd64": "x86_64", "arm64": "aarch64"}.get(
-        platform.machine().lower(), platform.machine().lower()
-    )
+    machine = {"amd64": "x86_64", "arm64": "aarch64"}.get(platform.machine().lower(), platform.machine().lower())
     return {
         "machine": machine,
         "cpu_model": cpu or "unknown",
@@ -302,8 +296,7 @@ def bench_variant(
     digest = sha256(path)
     if digest != variant["sha256"]:
         raise ValueError(
-            "%s does not match the manifest sha256; the copy is corrupt, re-deploy the package"
-            % variant["file"]
+            "%s does not match the manifest sha256; the copy is corrupt, re-deploy the package" % variant["file"]
         )
     infer, version, provider = make_runner(args.runtime, path, args.threads, args.providers)
     inputs = [np.ascontiguousarray(img.transpose(2, 0, 1)[None], dtype=np.float32) for img in images]
@@ -389,24 +382,16 @@ def post(url: str, token: str, body: Dict[str, Any], tries: int = 5) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument(
-        "--package", type=Path, default=Path(__file__).resolve().parent, help="unpacked package directory"
-    )
+    ap.add_argument("--package", type=Path, default=Path(__file__).resolve().parent, help="unpacked package directory")
     ap.add_argument("--target", help="target name to record (default: the package's target)")
     ap.add_argument("--runtime", default="onnxruntime", choices=["onnxruntime", "openvino"])
-    ap.add_argument(
-        "--providers", type=lambda s: s.split(","), default=[], help="onnxruntime providers, in order"
-    )
+    ap.add_argument("--providers", type=lambda s: s.split(","), default=[], help="onnxruntime providers, in order")
     ap.add_argument("--threads", type=int, default=0, help="0 = runtime default")
     ap.add_argument("--variants", type=lambda s: s.split(","), help="subset of variant names")
     ap.add_argument("--runs", type=int, default=200)
     ap.add_argument("--warmup", type=int, default=20)
-    ap.add_argument(
-        "--power", default="auto", help="auto | none | battery | rapl | hwmon | pmic | cmd:<prints watts>"
-    )
-    ap.add_argument(
-        "--power-seconds", type=float, default=20.0, help="length of the idle and the loaded window"
-    )
+    ap.add_argument("--power", default="auto", help="auto | none | battery | rapl | hwmon | pmic | cmd:<prints watts>")
+    ap.add_argument("--power-seconds", type=float, default=20.0, help="length of the idle and the loaded window")
     ap.add_argument("--power-interval", type=float, default=0.5)
     # Calibration against a reference meter: reported = raw * scale + offset.
     ap.add_argument("--power-scale", type=float, default=float(os.environ.get("EDGE_POWER_SCALE", "1")))
@@ -463,9 +448,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 lat["p50"],
                 lat["p95"],
                 lat["p99"],
-                ""
-                if budget is None
-                else (" (budget %.0f: %s)" % (budget, "ok" if lat["p95"] <= budget else "OVER")),
+                "" if budget is None else (" (budget %.0f: %s)" % (budget, "ok" if lat["p95"] <= budget else "OVER")),
                 "%.2f W, %.1f mJ/inference" % (pw["load_w"], pw["energy_mj"]) if pw else "no power",
             ),
             file=sys.stderr,

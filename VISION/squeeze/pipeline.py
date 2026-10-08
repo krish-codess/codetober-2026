@@ -178,12 +178,8 @@ class Run:
             }
         floor = self.teacher_top1(acc) - self.cfg.budget_pt / 100
         out["gate"] = "pass" if acc["top1"] >= floor - 1e-9 else "fail"
-        out["gate_reason"] = (
-            f"top-1 {acc['top1']:.3f} vs floor {floor:.3f} (teacher - {self.cfg.budget_pt} pt)"
-        )
-        logger.info(
-            "verify %s: top1 %.3f deploy %.3f gate %s", name, acc["top1"], acc_deploy["top1"], out["gate"]
-        )
+        out["gate_reason"] = f"top-1 {acc['top1']:.3f} vs floor {floor:.3f} (teacher - {self.cfg.budget_pt} pt)"
+        logger.info("verify %s: top1 %.3f deploy %.3f gate %s", name, acc["top1"], acc_deploy["top1"], out["gate"])
         return out
 
     def teacher_top1(self, own: dict[str, Any]) -> float:
@@ -221,9 +217,7 @@ def _baselines(run: Run) -> list[dict[str, Any]]:
 
     def closure() -> torch.Tensor:
         opt.zero_grad()
-        loss: torch.Tensor = (
-            torch.nn.functional.cross_entropy(linear(x), y) + 1e-3 * linear.weight.pow(2).sum()
-        )
+        loss: torch.Tensor = torch.nn.functional.cross_entropy(linear(x), y) + 1e-3 * linear.weight.pow(2).sum()
         loss.backward()
         return loss
 
@@ -266,9 +260,7 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
     )
     teacher_onnx = run.dir / "teacher-r50.onnx"
     baselines = run.step("baselines", lambda: {"rows": _baselines(run)})["rows"]
-    soft = run._cached_array(
-        "teacher_train_logits.npy", lambda: quant.logits(teacher_onnx, images, run.train_idx)
-    )
+    soft = run._cached_array("teacher_train_logits.npy", lambda: quant.logits(teacher_onnx, images, run.train_idx))
 
     def progress(tag: str) -> Callable[[int, int, float], None]:
         return lambda step, total, loss: logger.info("%s step %d/%d loss %.4f", tag, step, total, loss)
@@ -315,7 +307,8 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
     run.add("student-kd", lambda: tuned("student-kd", kd=True))
 
     # --- structured pruning -------------------------------------------------------------------
-    ft_idx = run.train_idx[: cfg.n_prune_ft]
+    ft_idx = ds.idx("train", cfg.n_prune_ft)  # a subset of train_idx: subsets nest
+    ft_soft = soft[np.searchsorted(run.train_idx, ft_idx)]
     for ratio in cfg.prune_ratios:
         tag = f"r50-prune{round(ratio * 100)}"
         arch = f"resnet50-pruned{round(ratio * 100)}"
@@ -333,7 +326,7 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
                 images,
                 labels,
                 ft_idx,
-                teacher_logits=soft[: len(ft_idx)],
+                teacher_logits=ft_soft,
                 epochs=cfg.prune_epochs,
                 lr=cfg.prune_lr,
                 batch=16,
@@ -364,9 +357,7 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
             quant.prepare(run.dir / f"{name}.onnx", path)
         return path
 
-    def int8(
-        src: str, name: str, exclude: list[str], technique: str, detail: dict[str, Any]
-    ) -> dict[str, Any]:
+    def int8(src: str, name: str, exclude: list[str], technique: str, detail: dict[str, Any]) -> dict[str, Any]:
         quant.quantize(prepared(src), run.dir / f"{name}.onnx", run.calib, exclude=exclude)
         parent = run.variants[src]
         return run.verify(
@@ -399,9 +390,7 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
             quant.quantize(prepared("student-kd"), tmp, run.calib, exclude=[r["node"] for r in rows[:k]])
             got = quant.logits(tmp, dev_u8, np.arange(len(dev_u8)))
             acc = float((got.argmax(1) == dev_y).mean())
-            search.append(
-                {"k": k, "dev_top1": acc, "dev_kl": quant.kl(ref, got), "size_bytes": tmp.stat().st_size}
-            )
+            search.append({"k": k, "dev_top1": acc, "dev_kl": quant.kl(ref, got), "size_bytes": tmp.stat().st_size})
             logger.info("mixed search k=%d dev top1 %.3f (fp32 %.3f)", k, acc, ref_acc)
             if acc >= ref_acc - cfg.mixed_tol_pt / 100 - 1e-9:
                 chosen = k
@@ -452,15 +441,9 @@ def execute(cfg: Config, ds: data.Dataset, runs_dir: Path) -> dict[str, Any]:
         for source, x, method in sets:
             quant.quantize(prepared("student-kd"), tmp, x, method=method, exclude=float_layers)
             clean = stats.accuracy(quant.logits(tmp, images, run.eval_idx), run.y_eval)
-            deploy = stats.accuracy(
-                quant.logits(tmp, run.eval_deploy, np.arange(len(run.eval_deploy))), run.y_eval
-            )
-            rows.append(
-                {"source": source, "n": len(x), "method": method, "eval": clean, "eval_deploy": deploy}
-            )
-            logger.info(
-                "calibration %s n=%d %s: %.3f / %.3f", source, len(x), method, clean["top1"], deploy["top1"]
-            )
+            deploy = stats.accuracy(quant.logits(tmp, run.eval_deploy, np.arange(len(run.eval_deploy))), run.y_eval)
+            rows.append({"source": source, "n": len(x), "method": method, "eval": clean, "eval_deploy": deploy})
+            logger.info("calibration %s n=%d %s: %.3f / %.3f", source, len(x), method, clean["top1"], deploy["top1"])
         tmp.unlink(missing_ok=True)
         return {"rows": rows}
 

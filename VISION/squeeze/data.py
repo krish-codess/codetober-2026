@@ -96,9 +96,13 @@ class Dataset:
     profile: dict[str, Any]
 
     def idx(self, split: str, limit: int | None = None) -> np.ndarray:
-        """Indices of a split in filename order (stable), optionally the first `limit`."""
+        """Indices of a split, ascending. With `limit`, a fixed pseudo-random subset: the files
+        are stored class by class, so "the first N" would be the first few classes only."""
         i = np.flatnonzero(self.splits == split)
-        return i if limit is None else i[:limit]
+        if limit is None or limit >= len(i):
+            return i
+        key = [hashlib.sha1(self.names[j].encode(), usedforsecurity=False).digest() for j in i]
+        return np.sort(i[sorted(range(len(i)), key=key.__getitem__)[:limit]])
 
 
 def build(raw_root: Path, out_dir: Path, size: int = 160) -> Dataset:
@@ -140,9 +144,9 @@ def build(raw_root: Path, out_dir: Path, size: int = 160) -> Dataset:
             )
             sink.write(arr.tobytes())
 
-    version = hashlib.sha256(
-        "\n".join(f"{k['sha1']}:{k['label']}:{k['split']}" for k in kept).encode()
-    ).hexdigest()[:16]
+    version = hashlib.sha256("\n".join(f"{k['sha1']}:{k['label']}:{k['split']}" for k in kept).encode()).hexdigest()[
+        :16
+    ]
     profile = _profile(kept, quarantine, size)
     (out_dir / "quarantine.jsonl").write_text("".join(json.dumps(q) + "\n" for q in quarantine))
     (out_dir / "profile.json").write_text(json.dumps(profile, indent=2))
@@ -173,9 +177,7 @@ def _profile(kept: list[dict[str, Any]], quarantine: list[dict[str, Any]], size:
         # and ImageNet-val images sitting in train/.
         "folder_vs_provenance": count(
             kept,
-            lambda k: [
-                f"{k['path'].split('/')[0]}/ holds imagenet-{'val' if k['split'] == 'eval' else 'train'}"
-            ],
+            lambda k: [f"{k['path'].split('/')[0]}/ holds imagenet-{'val' if k['split'] == 'eval' else 'train'}"],
         ),
     }
 

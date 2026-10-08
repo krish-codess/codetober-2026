@@ -21,7 +21,6 @@ import numpy as np
 from . import data, quant
 
 HARNESS = Path(__file__).resolve().parent.parent / "device" / "edge_bench.py"
-TARGETS = Path(__file__).resolve().parent.parent / "targets.json"
 PACK_N = 100
 
 RUN_SH = """#!/bin/sh
@@ -31,10 +30,6 @@ set -eu
 cd "$(dirname "$0")"
 exec python3 edge_bench.py --package . "$@"
 """
-
-
-def targets() -> dict[str, dict[str, Any]]:
-    return {t["name"]: t for t in json.loads(TARGETS.read_text())}
 
 
 def _npy(arr: np.ndarray) -> bytes:

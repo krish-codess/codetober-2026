@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 def _default_data_dir() -> Path:
@@ -38,3 +40,9 @@ def load() -> Settings:
         max_body=int(env.get("SQUEEZE_MAX_BODY", "262144")),
         log_level=env.get("SQUEEZE_LOG_LEVEL", "INFO"),
     )
+
+
+def targets() -> dict[str, dict[str, Any]]:
+    """The hardware targets, from targets.json next to the package (override: SQUEEZE_TARGETS)."""
+    path = os.environ.get("SQUEEZE_TARGETS") or Path(__file__).resolve().parent.parent / "targets.json"
+    return {t["name"]: t for t in json.loads(Path(path).read_text())}

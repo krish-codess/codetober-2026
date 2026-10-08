@@ -9,8 +9,7 @@ def test_every_planted_defect_is_quarantined_or_flagged_never_dropped(tmp_path):
     planted = synth.dataset(tmp_path / "raw", seed=1)
     ds = data.build(tmp_path / "raw", tmp_path / "out", size=64)
     quarantine = {
-        q["path"]: q["reason"]
-        for q in map(json.loads, (tmp_path / "out/quarantine.jsonl").read_text().splitlines())
+        q["path"]: q["reason"] for q in map(json.loads, (tmp_path / "out/quarantine.jsonl").read_text().splitlines())
     }
     index = {k["path"]: k for k in json.loads((tmp_path / "out/index.json").read_text())["items"]}
     for path, expect in planted.items():
@@ -61,3 +60,12 @@ def test_wilson_and_paired_delta():
     b[:5] = False
     delta, lo, hi = stats.paired_delta(a, b)
     assert delta == -0.01 and lo < delta < hi <= 0
+
+
+def test_a_limited_subset_is_stable_and_spans_the_classes(tmp_path):
+    synth.dataset(tmp_path / "raw", defects=False, per_class=40)
+    ds = data.build(tmp_path / "raw", tmp_path / "out", size=64)
+    some = ds.idx("train", 60)
+    assert len(set(ds.labels[some])) == 10  # not just the first classes in folder order
+    assert np.array_equal(some, ds.idx("train", 60)) and set(some) <= set(ds.idx("train"))
+    assert set(ds.idx("train", 30)) <= set(some)  # growing the limit only adds images

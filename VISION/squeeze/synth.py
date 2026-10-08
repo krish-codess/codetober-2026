@@ -30,9 +30,7 @@ def _jpeg(im: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def dataset(
-    root: Path, seed: int = 0, per_class: int = 24, size: int = 64, defects: bool = True
-) -> dict[str, str]:
+def dataset(root: Path, seed: int = 0, per_class: int = 24, size: int = 64, defects: bool = True) -> dict[str, str]:
     """Returns {relative path: expected quarantine reason or kept-flag} for every planted defect."""
     rng = np.random.default_rng(seed)
     for label, (wnid, _, _) in enumerate(CLASSES):
@@ -67,3 +65,82 @@ def dataset(
     plant(f"train/{a}/{a}_9007.JPEG", _jpeg(_image(rng, 0, size).convert("L")), "converted:L")
     plant(f"train/{a}/{a}_9008.JPEG", _jpeg(_image(rng, 0, size).convert("CMYK")), "converted:CMYK")
     return planted
+
+
+def bench_results(
+    variants: list[dict[str, str]], targets: list[str], n: int, seed: int = 0, defects: bool = True
+) -> list[tuple[dict[str, object], str]]:
+    """Device result uploads shaped like the real ones, marked `synthetic`, for load tests and for
+    exercising the ingest boundary. Returns (payload, expected outcome) pairs. With `defects`,
+    roughly one in eight payloads carries a fault real devices produce: a resend, a clock that was
+    never set, milliwatts, a harness bug, a typo in the target."""
+    import hashlib
+    import json
+    import random
+    from datetime import UTC, datetime, timedelta
+
+    rng = random.Random(seed)  # noqa: S311
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    out: list[tuple[dict[str, object], str]] = []
+    while len(out) < n:
+        v = rng.choice(variants)
+        target = rng.choice(targets)
+        speed = (int(hashlib.sha256((target + v["name"]).encode()).hexdigest()[:4], 16) % 190 + 10) / 2
+        p50 = speed * rng.lognormvariate(0, 0.08)
+        has_power = rng.random() < 0.6
+        idle = rng.uniform(2.5, 3.2)
+        body: dict[str, object] = {
+            "schema": 1,
+            "synthetic": True,
+            "target": target,
+            "variant": v["name"],
+            "model_sha256": v["sha256"],
+            "runtime": "onnxruntime",
+            "runtime_version": "1.30.0",
+            "provider": "CPUExecutionProvider",
+            "threads": 4,
+            "measured_at": (base + timedelta(seconds=len(out) * 37)).isoformat(),
+            "device": {"machine": "aarch64", "cpu_model": "Cortex-A76", "cores": 4, "os": "Linux", "board": None},
+            "latency_ms": {"n": 200, "p50": p50, "p95": p50 * 1.15, "p99": p50 * 1.4, "mean": p50 * 1.03},
+            "accuracy": {"n": 100, "top1": 0.97, "agree_host": 1.0},
+            "power": {
+                "source": "pmic", "unit": "W", "idle_w": idle, "load_w": idle + 2.4,
+                "energy_mj": 2.4 * p50, "samples": 40,
+            } if has_power else None,
+        }  # fmt: skip
+        if not has_power:
+            body["power_unavailable"] = "no sensor"
+        expect = "created"
+        fault = rng.randrange(64) if defects else 99
+        if fault == 0 and out:  # the device retried after a timeout
+            out.append((dict(out[-1][0]), "duplicate" if out[-1][1] == "created" else out[-1][1]))
+            continue
+        if fault == 1:
+            body["measured_at"] = int((base + timedelta(seconds=len(out))).timestamp())  # epoch seconds: fine
+        elif fault == 2:
+            body["measured_at"] = "2026-10-03T12:00:00"  # naive: taken as UTC
+        elif fault == 3 and has_power:
+            body["power"] = {
+                "source": "pmic", "unit": "mW", "idle_w": idle * 1000, "load_w": (idle + 2.4) * 1000,
+                "energy_mj": 2.4 * p50, "samples": 40,
+            }  # fmt: skip
+        elif fault == 4:
+            body["measured_at"], expect = "1970-01-01T00:03:20+00:00", "quarantined"  # clock never set
+        elif fault == 5:
+            body["latency_ms"], expect = (
+                {"n": 200, "p50": 50.0, "p95": 20.0, "p99": 60.0, "mean": 50.0},
+                "quarantined",
+            )
+        elif fault == 6:
+            body["latency_ms"], expect = (
+                {"n": 200, "p50": float("nan"), "p95": 1.0, "p99": 1.0, "mean": 1.0},
+                "quarantined",
+            )
+        elif fault == 7:
+            body["target"], expect = "rpi-5", "quarantined"  # typo: not a known target
+        elif fault == 8:
+            del body["accuracy"]
+            expect = "quarantined"
+        body["result_id"] = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:32]
+        out.append((body, expect))
+    return out
