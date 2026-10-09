@@ -1,0 +1,34 @@
+# cp .env.example .env && docker compose up --build   ->  http://localhost:8015
+#
+# `pipeline` runs once: it seeds the shared volume with a dataset (synthetic by default, so the
+# stack comes up in a couple of minutes with no download), then exits. `app` starts only after it
+# succeeded and serves the page, the tiles and the reference API.
+services:
+  pipeline:
+    build: { context: ., target: pipeline }
+    env_file: .env
+    volumes: ["data:/var/lib/dots"]
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+
+  app:
+    build: { context: ., target: api }
+    env_file: .env
+    environment:
+      DOTS_HOST: 0.0.0.0
+      DOTS_PORT: "8015"
+    depends_on:
+      pipeline: { condition: service_completed_successfully }
+    ports: ["${DOTS_PUBLISHED_PORT:-8015}:8015"]
+    # Least privilege: the server only ever reads what the job wrote.
+    volumes: ["data:/var/lib/dots:ro"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  data:

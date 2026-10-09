@@ -1,0 +1,10 @@
+.venv
+**/node_modules
+web/dist
+web/test-results
+.git
+results
+docs
+tests
+**/__pycache__
+.env
