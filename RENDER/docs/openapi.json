@@ -1,0 +1,813 @@
+{
+ "components": {
+  "schemas": {
+   "CategoryCount": {
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "lift": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "share in the selection divided by share in the whole dataset; null when the label is absent overall",
+      "title": "Lift"
+     },
+     "share": {
+      "description": "count / n",
+      "title": "Share",
+      "type": "number"
+     }
+    },
+    "required": [
+     "label",
+     "count",
+     "share",
+     "lift"
+    ],
+    "title": "CategoryCount",
+    "type": "object"
+   },
+   "Check": {
+    "properties": {
+     "detail": {
+      "title": "Detail",
+      "type": "string"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ok",
+     "detail"
+    ],
+    "title": "Check",
+    "type": "object"
+   },
+   "ColumnSummary": {
+    "properties": {
+     "counts": {
+      "description": "Labels present in the selection, most common first",
+      "items": {
+       "$ref": "#/components/schemas/CategoryCount"
+      },
+      "title": "Counts",
+      "type": "array"
+     },
+     "entropy": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Shannon entropy of the labels, normalised to 0..1 by log(number of labels present overall)",
+      "title": "Entropy"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "purity": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Share of the most common label; null for an empty selection",
+      "title": "Purity"
+     }
+    },
+    "required": [
+     "name",
+     "purity",
+     "entropy",
+     "counts"
+    ],
+    "title": "ColumnSummary",
+    "type": "object"
+   },
+   "ErrorBody": {
+    "properties": {
+     "code": {
+      "examples": [
+       "unknown_variant"
+      ],
+      "title": "Code",
+      "type": "string"
+     },
+     "details": {
+      "anyOf": [
+       {},
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Details"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "code",
+     "message"
+    ],
+    "title": "ErrorBody",
+    "type": "object"
+   },
+   "ErrorResponse": {
+    "properties": {
+     "error": {
+      "$ref": "#/components/schemas/ErrorBody"
+     },
+     "request_id": {
+      "title": "Request Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "error",
+     "request_id"
+    ],
+    "title": "ErrorResponse",
+    "type": "object"
+   },
+   "Point": {
+    "properties": {
+     "cluster": {
+      "title": "Cluster",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "rank": {
+      "title": "Rank",
+      "type": "integer"
+     },
+     "script": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Script"
+     },
+     "token": {
+      "title": "Token",
+      "type": "string"
+     },
+     "x": {
+      "title": "X",
+      "type": "number"
+     },
+     "y": {
+      "title": "Y",
+      "type": "number"
+     }
+    },
+    "required": [
+     "id",
+     "token",
+     "rank",
+     "x",
+     "y",
+     "script",
+     "kind",
+     "cluster"
+    ],
+    "title": "Point",
+    "type": "object"
+   },
+   "PointsPage": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/Point"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_cursor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Pass back as `cursor` for the next page; null on the last page",
+      "title": "Next Cursor"
+     }
+    },
+    "required": [
+     "items",
+     "next_cursor"
+    ],
+    "title": "PointsPage",
+    "type": "object"
+   },
+   "RankSummary": {
+    "properties": {
+     "max": {
+      "title": "Max",
+      "type": "integer"
+     },
+     "median": {
+      "title": "Median",
+      "type": "number"
+     },
+     "min": {
+      "title": "Min",
+      "type": "integer"
+     },
+     "q25": {
+      "title": "Q25",
+      "type": "number"
+     },
+     "q75": {
+      "title": "Q75",
+      "type": "number"
+     }
+    },
+    "required": [
+     "min",
+     "q25",
+     "median",
+     "q75",
+     "max"
+    ],
+    "title": "RankSummary",
+    "type": "object"
+   },
+   "Ready": {
+    "properties": {
+     "checks": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/Check"
+      },
+      "title": "Checks",
+      "type": "object"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "status",
+     "checks"
+    ],
+    "title": "Ready",
+    "type": "object"
+   },
+   "SummaryRequest": {
+    "properties": {
+     "filters": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "description": "Keep only points whose label is listed, per column.",
+      "examples": [
+       {
+        "script": [
+         "Latin",
+         "Cyrillic"
+        ]
+       }
+      ],
+      "title": "Filters",
+      "type": "object"
+     },
+     "polygon": {
+      "description": "Lasso vertices in projection units. Closed implicitly; even-odd fill rule.",
+      "items": {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array"
+      },
+      "maxItems": 2048,
+      "minItems": 3,
+      "title": "Polygon",
+      "type": "array"
+     },
+     "variant": {
+      "examples": [
+       "umap-n15-d0.1"
+      ],
+      "title": "Variant",
+      "type": "string"
+     }
+    },
+    "required": [
+     "variant",
+     "polygon"
+    ],
+    "title": "SummaryRequest",
+    "type": "object"
+   },
+   "SummaryResponse": {
+    "properties": {
+     "build_id": {
+      "title": "Build Id",
+      "type": "string"
+     },
+     "columns": {
+      "items": {
+       "$ref": "#/components/schemas/ColumnSummary"
+      },
+      "title": "Columns",
+      "type": "array"
+     },
+     "mean_chars": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Chars"
+     },
+     "n": {
+      "description": "Points selected",
+      "title": "N",
+      "type": "integer"
+     },
+     "rank": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RankSummary"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Frequency rank of the selected tokens (1 = most frequent)"
+     },
+     "top_tokens": {
+      "description": "The ten most frequent selected tokens",
+      "items": {
+       "$ref": "#/components/schemas/TopToken"
+      },
+      "title": "Top Tokens",
+      "type": "array"
+     },
+     "total": {
+      "description": "Points in the variant",
+      "title": "Total",
+      "type": "integer"
+     },
+     "variant": {
+      "title": "Variant",
+      "type": "string"
+     }
+    },
+    "required": [
+     "variant",
+     "build_id",
+     "n",
+     "total",
+     "columns",
+     "rank",
+     "mean_chars",
+     "top_tokens"
+    ],
+    "title": "SummaryResponse",
+    "type": "object"
+   },
+   "TopToken": {
+    "properties": {
+     "rank": {
+      "title": "Rank",
+      "type": "integer"
+     },
+     "token": {
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "token",
+     "rank"
+    ],
+    "title": "TopToken",
+    "type": "object"
+   },
+   "VariantInfo": {
+    "properties": {
+     "bytes": {
+      "title": "Bytes",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "metrics": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Metrics"
+     },
+     "n_points": {
+      "title": "N Points",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+     },
+     "tiles": {
+      "title": "Tiles",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "params",
+     "n_points",
+     "tiles",
+     "bytes",
+     "metrics"
+    ],
+    "title": "VariantInfo",
+    "type": "object"
+   },
+   "VariantsResponse": {
+    "properties": {
+     "build_id": {
+      "title": "Build Id",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+     },
+     "variants": {
+      "items": {
+       "$ref": "#/components/schemas/VariantInfo"
+      },
+      "title": "Variants",
+      "type": "array"
+     }
+    },
+    "required": [
+     "build_id",
+     "source",
+     "synthetic",
+     "variants"
+    ],
+    "title": "VariantsResponse",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "description": "Tiles as binary buffers under /data, and selection summaries computed server-side. Read-only; no authentication because the data is public and there are no users or tenants.",
+  "title": "A Million Dots: reference API",
+  "version": "1.0.0"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/api/v1/points": {
+   "get": {
+    "operationId": "points_api_v1_points_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "variant",
+      "required": true,
+      "schema": {
+       "title": "Variant",
+       "type": "string"
+      }
+     },
+     {
+      "description": "x0,y0,x1,y1 in projection units",
+      "in": "query",
+      "name": "bbox",
+      "required": true,
+      "schema": {
+       "description": "x0,y0,x1,y1 in projection units",
+       "maxLength": 120,
+       "pattern": "^-?[0-9.eE+-]+(,-?[0-9.eE+-]+){3}$",
+       "title": "Bbox",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "maximum": 1000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "cursor",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Cursor"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PointsPage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Bad Request"
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Not Found"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Unprocessable Entity"
+     },
+     "503": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Service Unavailable"
+     }
+    },
+    "summary": "Points inside a box, ordered by id, one page at a time",
+    "tags": [
+     "data"
+    ]
+   }
+  },
+  "/api/v1/summary": {
+   "post": {
+    "operationId": "summary_api_v1_summary_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SummaryRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SummaryResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Not Found"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Unprocessable Entity"
+     },
+     "503": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Service Unavailable"
+     }
+    },
+    "summary": "Statistics for the points inside a lasso",
+    "tags": [
+     "data"
+    ]
+   }
+  },
+  "/api/v1/variants": {
+   "get": {
+    "operationId": "variants_api_v1_variants_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VariantsResponse"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "503": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorResponse"
+        }
+       }
+      },
+      "description": "Service Unavailable"
+     }
+    },
+    "summary": "Projection variants in the published build",
+    "tags": [
+     "data"
+    ]
+   }
+  },
+  "/healthz": {
+   "get": {
+    "operationId": "healthz_healthz_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Healthz Healthz Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Liveness: the process answers",
+    "tags": [
+     "ops"
+    ]
+   }
+  },
+  "/metrics": {
+   "get": {
+    "operationId": "metrics_metrics_get",
+    "responses": {
+     "200": {
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Prometheus text format",
+    "tags": [
+     "ops"
+    ]
+   }
+  },
+  "/readyz": {
+   "get": {
+    "operationId": "readyz_readyz_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Ready"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "503": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Ready"
+        }
+       }
+      },
+      "description": "Service Unavailable"
+     }
+    },
+    "summary": "Readiness: reads the manifest, decodes a tile, queries the metadata",
+    "tags": [
+     "ops"
+    ]
+   }
+  }
+ }
+}

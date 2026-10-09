@@ -1,0 +1,8 @@
+{
+ "comment": "Measured on the 4,000-row seeded synthetic dataset in tests/conftest.py. The gate in tests/test_model.py fails when a value falls more than `tolerance` below these.",
+ "tolerance": 0.05,
+ "variants": {
+  "pca": {"purity.cluster": 0.667, "recall.all": 0.076},
+  "umap-n10-d0.1": {"purity.cluster": 0.956, "purity.script": 0.767, "recall.all": 0.160, "recall.placed": 0.132}
+ }
+}
