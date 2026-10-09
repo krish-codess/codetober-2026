@@ -1,0 +1,104 @@
+# cp .env.example .env && docker compose up --build
+#   -> http://localhost:8080   the story UI (nginx, standing in for a CDN) in front of the API
+#
+# Start order: db -> migrate -> batch (seeds a synthetic year on first run, then the whole pipeline)
+# -> api -> web. Each service connects with its own database user.
+#
+# docker compose run --rm batch links        personal links for a few users of each tier
+# docker compose run --rm batch rollback     serve the previous run again
+
+x-app: &app
+  build:
+    context: .
+    target: app
+  image: wrapped-app:local
+  volumes:
+    - wrapped-data:/data
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-app-env: &app-env
+  WRAPPED_ENV: ${WRAPPED_ENV:-production}
+  WRAPPED_DATA_DIR: /data
+  WRAPPED_YEAR: ${WRAPPED_YEAR:-2025}
+  WRAPPED_TOKEN_SECRET: ${WRAPPED_TOKEN_SECRET:?set WRAPPED_TOKEN_SECRET in .env}
+  WRAPPED_ADMIN_TOKEN: ${WRAPPED_ADMIN_TOKEN:?set WRAPPED_ADMIN_TOKEN in .env}
+  WRAPPED_PUBLIC_BASE_URL: ${WRAPPED_PUBLIC_BASE_URL:-http://localhost:8080}
+  WRAPPED_K_ANONYMITY: ${WRAPPED_K_ANONYMITY:-10}
+  WRAPPED_DUCKDB_MEMORY: ${WRAPPED_DUCKDB_MEMORY:-1GB}
+  WRAPPED_DUCKDB_THREADS: ${WRAPPED_DUCKDB_THREADS:-4}
+  WRAPPED_LOG_LEVEL: ${WRAPPED_LOG_LEVEL:-INFO}
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: wrapped_owner
+      POSTGRES_PASSWORD: ${WRAPPED_OWNER_DB_PASSWORD:?set WRAPPED_OWNER_DB_PASSWORD in .env}
+      POSTGRES_DB: wrapped
+      WRAPPED_API_DB_PASSWORD: ${WRAPPED_API_DB_PASSWORD:?set WRAPPED_API_DB_PASSWORD in .env}
+      WRAPPED_BATCH_DB_PASSWORD: ${WRAPPED_BATCH_DB_PASSWORD:?set WRAPPED_BATCH_DB_PASSWORD in .env}
+    volumes:
+      - wrapped-db:/var/lib/postgresql
+      - ./deploy/init-roles.sh:/docker-entrypoint-initdb.d/init-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wrapped_owner -d wrapped"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["migrate"]
+    environment:
+      <<: *app-env
+      WRAPPED_MIGRATE_DATABASE_URL: postgresql://wrapped_owner:${WRAPPED_OWNER_DB_PASSWORD}@db:5432/wrapped
+    depends_on:
+      db: { condition: service_healthy }
+
+  batch:
+    <<: *app
+    command: ["seed", "--users", "${WRAPPED_SEED_USERS:-20000}"]
+    environment:
+      <<: *app-env
+      WRAPPED_BATCH_DATABASE_URL: postgresql://wrapped_batch:${WRAPPED_BATCH_DB_PASSWORD}@db:5432/wrapped
+      # `links` reads which users exist; the batch user may read payloads too.
+      WRAPPED_DATABASE_URL: postgresql://wrapped_batch:${WRAPPED_BATCH_DB_PASSWORD}@db:5432/wrapped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  api:
+    <<: *app
+    command: ["serve", "--host", "0.0.0.0"]
+    environment:
+      <<: *app-env
+      WRAPPED_DATABASE_URL: postgresql://wrapped_api:${WRAPPED_API_DB_PASSWORD}@db:5432/wrapped
+    depends_on:
+      batch: { condition: service_completed_successfully }
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 6
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+    image: wrapped-web:local
+    ports:
+      - "${WRAPPED_PORT:-8080}:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  wrapped-data:
+  wrapped-db:

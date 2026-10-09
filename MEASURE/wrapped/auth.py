@@ -35,10 +35,11 @@ def verify(secret: str, token: str, now: float | None = None) -> Claims | None:
     body, _, sig = token.partition(".")
     if not body or not sig or len(token) > 512:
         return None
-    if not hmac.compare_digest(_sign(secret, body), sig):
+    if not hmac.compare_digest(_sign(secret, body).encode(), sig.encode()):  # bytes: a non-ASCII token must not raise
         return None
     try:
-        user_id, year, expires_at = (int(p) for p in base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)).decode().split(":"))
+        decoded = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)).decode()
+        user_id, year, expires_at = (int(p) for p in decoded.split(":"))
     except ValueError:  # covers bad base64, bad utf-8 and wrong arity
         return None
     if expires_at < (now if now is not None else time.time()):

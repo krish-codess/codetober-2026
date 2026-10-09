@@ -115,6 +115,10 @@ def setup_logging(level: str = "INFO") -> None:
     logging.basicConfig(level=level, handlers=[handler], force=True)
 
 
-def log(logger: logging.Logger, msg: str, level: int = logging.INFO, **fields: object) -> None:
+def log(logger: logging.Logger, msg: str, /, **fields: object) -> None:
     """Structured log line: `log(logger, "ingested", files=3, rows=120)`."""
-    logger.log(level, msg, extra={"fields": fields})
+    logger.info(msg, extra={"fields": fields})
+
+
+def warn(logger: logging.Logger, msg: str, /, **fields: object) -> None:
+    logger.warning(msg, extra={"fields": fields})

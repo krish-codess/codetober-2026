@@ -59,7 +59,7 @@ def upgrade() -> None:
             UNIQUE (run_id, user_id, card_type),
             FOREIGN KEY (run_id, user_id) REFERENCES wrapped_payloads (run_id, user_id) ON DELETE CASCADE
         );
-        -- Serves the superlative-distribution query (count by card_type for one run) as an index-only scan.
+        -- Intended for the superlative-distribution query. Measured, never chosen by the planner, dropped in 0003.
         CREATE INDEX payload_cards_run_type_idx ON payload_cards (run_id, card_type);
 
         -- First time a user saw a card. The primary key makes recording a view idempotent.

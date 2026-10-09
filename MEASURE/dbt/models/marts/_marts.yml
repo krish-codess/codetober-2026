@@ -1,0 +1,128 @@
+version: 2
+
+models:
+  - name: mart_user_year
+    description: One row per person for the Wrapped year. Automation excluded. All times UTC.
+    columns:
+      - name: user_id
+        description: Upstream account id.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_users')
+                field: user_id
+      - name: login
+        description: Most recent login in the year.
+        data_tests: [not_null]
+      - name: events
+        description: Events in the year, all types, after deduplication. At least 1.
+        data_tests: [not_null]
+      - name: active_days
+        description: Distinct UTC days with at least one event. 1 to 366.
+        data_tests: [not_null]
+      - name: longest_streak_days
+        description: Longest run of consecutive active UTC days within the year.
+        data_tests: [not_null]
+      - name: pushes
+        description: PushEvent count. Pushes, not commits; upstream stopped sending commit counts in October 2025.
+      - name: prs_opened
+        description: PullRequestEvent with action opened.
+      - name: reviews
+        description: Pull request reviews plus review comments.
+      - name: issues_opened
+        description: IssuesEvent with action opened.
+      - name: comments
+        description: Issue comments plus commit comments.
+      - name: stars
+        description: WatchEvent count (GitHub's name for starring).
+      - name: distinct_repos
+        description: Repositories the user had at least one event on.
+        data_tests: [not_null]
+      - name: top_repo_name
+        description: Repository with the most of the user's events. Null if no event carried a repository.
+      - name: peak_hour_utc
+        description: Hour of day, 0-23 UTC, with the most events.
+      - name: busiest_date
+        description: UTC date with the most events; earliest on a tie.
+        data_tests: [not_null]
+      - name: busiest_month
+        description: Month number 1-12 with the most events.
+        data_tests: [not_null]
+      - name: weekend_share
+        description: Fraction of events on Saturday or Sunday UTC, 0-1. Null below the minimum event count.
+      - name: first_event_at
+        description: Timestamp of the user's first event of the year, UTC.
+        data_tests: [not_null]
+
+  - name: mart_metric_values
+    description: One row per (user, metric) with a non-zero value. Input to the sketches.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "(user_id || '-' || metric)"
+    columns:
+      - name: user_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mart_user_year')
+                field: user_id
+      - name: metric
+        data_tests: [not_null]
+      - name: value
+        description: The metric's value as a double. Counts, or a 0-1 fraction for share metrics.
+        data_tests: [not_null]
+
+  - name: mart_metric_cutpoints
+    description: Published thresholds per metric with the exact number of users at or above each.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "(metric || '-' || cut_value)"
+    columns:
+      - name: metric
+        data_tests: [not_null]
+      - name: cut_value
+        description: Threshold value, proposed by the quantile sketch. Never shown to users.
+        data_tests: [not_null]
+      - name: users_at_or_above
+        description: Exact count of users whose value is >= cut_value. Always >= k.
+        data_tests: [not_null]
+      - name: population
+        description: Exact number of users the metric is ranked among.
+        data_tests: [not_null]
+      - name: top_fraction
+        description: users_at_or_above / population. An exact ratio in (0, 1].
+        data_tests: [not_null]
+
+  - name: mart_user_ranks
+    description: The highest published threshold each user clears on each metric.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "(user_id || '-' || metric)"
+    columns:
+      - name: user_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('mart_user_year')
+                field: user_id
+      - name: metric
+        data_tests: [not_null]
+      - name: top_fraction
+        description: Exact share of the population at or above the threshold this user clears.
+        data_tests: [not_null]
+
+  - name: mart_population
+    description: One row of population-wide totals for the community cards.
+    columns:
+      - name: year
+        data_tests: [unique, not_null]
+      - name: users
+        description: People (non-automated accounts) active in the year.
+        data_tests: [not_null]

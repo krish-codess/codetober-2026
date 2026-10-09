@@ -1,0 +1,1302 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Your App, Wrapped",
+    "description": "The serving API: one user's story, view and share recording, public share cards, and admin analytics.\n\nAuthorization is by signed token only. No route takes a user id: `/v1/wrapped` answers for the\nuser the token names, so there is no id to tamper with. Public share routes read the `shares`\ntable, which holds a snapshot of exactly one card, so they cannot return anything else.\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Liveness: the process is up",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Readiness: every dependency is exercised",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wrapped": {
+      "get": {
+        "tags": [
+          "story"
+        ],
+        "summary": "The story for the user the token names",
+        "operationId": "get_wrapped_v1_wrapped_get",
+        "parameters": [
+          {
+            "name": "if-none-match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WrappedResponse"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/wrapped/views/{card_type}": {
+      "put": {
+        "tags": [
+          "story"
+        ],
+        "summary": "Record that the user saw a card. Idempotent.",
+        "operationId": "record_view_v1_wrapped_views__card_type__put",
+        "parameters": [
+          {
+            "name": "card_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z_]{1,40}$",
+              "title": "Card Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/wrapped/shares": {
+      "post": {
+        "tags": [
+          "story"
+        ],
+        "summary": "Share one card. Retrying returns the same share.",
+        "operationId": "create_share_v1_wrapped_shares_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "This card was already shared; the existing share",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Share created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/shares/{share_id}": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "A shared card. Public; returns that one card and nothing else about the user.",
+        "operationId": "get_share_v1_shares__share_id__get",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicShare"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shares/{share_id}/card.png": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "The shared card as a 1200x630 PNG",
+        "operationId": "get_share_image_v1_shares__share_id__card_png_get",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{share_id}": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Share landing page with link-preview tags",
+        "operationId": "share_page_s__share_id__get",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/analytics/superlatives": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "How the cards are distributed across users in the active run",
+        "operationId": "superlatives_v1_admin_analytics_superlatives_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperlativeDistribution"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/analytics/share-rate": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Of the users who saw each shareable card, how many shared it",
+        "operationId": "share_rate_v1_admin_analytics_share_rate_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShareRateRow"
+                  },
+                  "title": "Response Share Rate V1 Admin Analytics Share Rate Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/payloads": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Page through the active run's payloads, ordered by user id",
+        "operationId": "list_payloads_v1_admin_payloads_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayloadPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "The request did not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Card": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "shareable": {
+            "type": "boolean",
+            "title": "Shareable"
+          },
+          "headline": {
+            "type": "string",
+            "title": "Headline"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "claim": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Claim"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stats": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Stat"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "family",
+          "shareable",
+          "headline",
+          "value",
+          "unit",
+          "body"
+        ],
+        "title": "Card"
+      },
+      "Claim": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "top_permille": {
+            "type": "integer",
+            "title": "Top Permille",
+            "description": "The claim in tenths of a percent: 50 means 'top 5%'."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis",
+            "description": "Who the user is being compared with, in words."
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric",
+          "top_permille",
+          "text",
+          "basis"
+        ],
+        "title": "Claim"
+      },
+      "ErrorBody": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorBody"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ErrorDetail"
+      },
+      "PayloadPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PayloadSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as `cursor` for the next page; null on the last page."
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "PayloadPage"
+      },
+      "PayloadSummary": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "login": {
+            "type": "string",
+            "title": "Login"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "login",
+          "tier"
+        ],
+        "title": "PayloadSummary"
+      },
+      "Population": {
+        "properties": {
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "basis": {
+            "type": "string",
+            "title": "Basis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "users",
+          "basis"
+        ],
+        "title": "Population"
+      },
+      "PublicShare": {
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "title": "Share Id"
+          },
+          "login": {
+            "type": "string",
+            "title": "Login"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_id",
+          "login",
+          "year",
+          "card",
+          "image_url"
+        ],
+        "title": "PublicShare"
+      },
+      "ShareRateRow": {
+        "properties": {
+          "card_type": {
+            "type": "string",
+            "title": "Card Type"
+          },
+          "viewers": {
+            "type": "integer",
+            "title": "Viewers"
+          },
+          "sharers": {
+            "type": "integer",
+            "title": "Sharers"
+          },
+          "share_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Rate",
+            "description": "sharers / viewers; null when nobody has viewed the card yet."
+          }
+        },
+        "type": "object",
+        "required": [
+          "card_type",
+          "viewers",
+          "sharers",
+          "share_rate"
+        ],
+        "title": "ShareRateRow"
+      },
+      "ShareRequest": {
+        "properties": {
+          "card_type": {
+            "type": "string",
+            "pattern": "^[a-z_]{1,40}$",
+            "title": "Card Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "card_type"
+        ],
+        "title": "ShareRequest"
+      },
+      "ShareResponse": {
+        "properties": {
+          "share_id": {
+            "type": "string",
+            "title": "Share Id"
+          },
+          "card_type": {
+            "type": "string",
+            "title": "Card Type"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Public page with link-preview tags."
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Image Url",
+            "description": "The rendered card. Versioned, so it can be cached forever."
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created",
+            "description": "False when this card had already been shared and the same share was returned."
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_id",
+          "card_type",
+          "url",
+          "image_url",
+          "created"
+        ],
+        "title": "ShareResponse"
+      },
+      "Stat": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "Stat"
+      },
+      "SuperlativeDistribution": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/SuperlativeRow"
+            },
+            "type": "array",
+            "title": "Cards"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "users",
+          "cards"
+        ],
+        "title": "SuperlativeDistribution"
+      },
+      "SuperlativeRow": {
+        "properties": {
+          "card_type": {
+            "type": "string",
+            "title": "Card Type"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "share_of_users": {
+            "type": "number",
+            "title": "Share Of Users"
+          }
+        },
+        "type": "object",
+        "required": [
+          "card_type",
+          "family",
+          "users",
+          "share_of_users"
+        ],
+        "title": "SuperlativeRow"
+      },
+      "UserRef": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "login": {
+            "type": "string",
+            "title": "Login"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "login"
+        ],
+        "title": "UserRef"
+      },
+      "WrappedResponse": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "full, light or minimal: how much activity the story is built from."
+          },
+          "archetype": {
+            "type": "string",
+            "title": "Archetype"
+          },
+          "population": {
+            "$ref": "#/components/schemas/Population"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            },
+            "type": "array",
+            "title": "Cards"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id",
+            "description": "The generation run this story came from."
+          },
+          "generated_at": {
+            "type": "string",
+            "title": "Generated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "year",
+          "user",
+          "tier",
+          "archetype",
+          "population",
+          "cards",
+          "run_id",
+          "generated_at"
+        ],
+        "title": "WrappedResponse"
+      }
+    }
+  }
+}

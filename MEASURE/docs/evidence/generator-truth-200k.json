@@ -1,0 +1,18 @@
+{
+  "files": 8814,
+  "lines": 6427250,
+  "defects": {
+    "duplicate": 12905,
+    "missing_actor": 3250,
+    "unparseable_timestamp": 1259,
+    "malformed_json": 1313,
+    "missing_event_id": 1284,
+    "timestamp_in_future": 671
+  },
+  "late_arrivals": 25849,
+  "seed": 2025,
+  "users": 200000,
+  "year": 2025,
+  "bot_accounts": 6,
+  "renamed_users": 1000
+}

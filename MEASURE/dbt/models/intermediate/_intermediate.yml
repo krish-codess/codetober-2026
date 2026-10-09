@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: int_events__deduped
+    description: One row per event, all years. Incremental; rebuilds any UTC day a new batch touched.
+    columns:
+      - name: event_id
+        description: Upstream event id.
+        data_tests: [unique, not_null]
+      - name: user_id
+        data_tests: [not_null]
+      - name: activity_date
+        data_tests: [not_null]
+
+  - name: int_user_days
+    description: One row per user per active UTC day, all years. Incremental, same strategy as the events.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "(user_id || '-' || activity_date)"
+    columns:
+      - name: user_id
+        data_tests: [not_null]
+      - name: activity_date
+        data_tests: [not_null]
+      - name: events
+        description: Events that day. Always at least 1.
+        data_tests: [not_null]
+      - name: max_batch_id
+        description: Newest ingest batch that contributed to the row. The incremental watermark.
+
+  - name: int_users
+    description: One row per account active in the Wrapped year, flagged if it is automation.
+    columns:
+      - name: user_id
+        data_tests: [unique, not_null]
+      - name: login
+        description: Most recent login seen in the year.
+        data_tests: [not_null]
+      - name: is_automated
+        description: True for logins ending in [bot] and for accounts over the daily event ceiling.
+        data_tests: [not_null]
+
+  - name: int_user_streaks
+    description: Longest run of consecutive active UTC days in the year, per user.
+    columns:
+      - name: user_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_users')
+                field: user_id
+      - name: longest_streak_days
+        data_tests: [not_null]
+
+  - name: int_user_favourites
+    description: Top repository, busiest UTC hour and first event of the year, per user.
+    columns:
+      - name: user_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_users')
+                field: user_id
