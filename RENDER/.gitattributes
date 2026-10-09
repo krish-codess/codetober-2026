@@ -1,0 +1,2 @@
+web/src/lib/__fixtures__/** -text
+*.sh text eol=lf

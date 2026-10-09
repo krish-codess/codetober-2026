@@ -24,6 +24,7 @@ def _default_data_dir() -> Path:
 class Settings:
     data_dir: Path
     site_dir: Path
+    web_dir: Path
     source: str  # glove-twitter-50 | synth | auto
     glove_urls: tuple[str, ...]
     synth_rows: int
@@ -47,6 +48,7 @@ def settings() -> Settings:
     return Settings(
         data_dir=data_dir,
         site_dir=Path(env("DOTS_SITE_DIR") or data_dir / "site"),
+        web_dir=Path(env("DOTS_WEB_DIR") or REPO / "web" / "dist"),
         source=env("DOTS_SOURCE", "auto"),
         glove_urls=tuple(
             env(

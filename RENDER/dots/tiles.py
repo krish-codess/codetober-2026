@@ -321,6 +321,9 @@ def run(s: Settings, source: str) -> dict:
         "eval": {k: v for k, v in evaluation.items() if k != "variants"},
         "variants": variants,
     }
+    from .ops import remember_previous  # here, not at the top: ops imports this module
+
+    remember_previous(data, build_id)
     write_json(
         data / "manifest.json", manifest
     )  # the only mutable file: everything under <build_id>/ is immutable

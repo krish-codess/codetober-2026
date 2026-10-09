@@ -6,6 +6,7 @@ import argparse
 import json
 import shutil
 import sys
+from pathlib import Path
 
 from . import fetch
 from .config import REPO, Settings, event, read_json, settings, write_json
@@ -46,13 +47,40 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="dots", description=__doc__)
     p.add_argument(
         "stage",
-        choices=["fetch", "ingest", "project", "evaluate", "tile", "report", "all", "serve", "openapi"],
+        choices=[
+            "fetch",
+            "ingest",
+            "project",
+            "evaluate",
+            "tile",
+            "report",
+            "all",
+            "serve",
+            "openapi",
+            "publish",
+            "rollback",
+            "verify",
+        ],
     )
-    p.add_argument("out", nargs="?", help="openapi: output path")
+    p.add_argument("out", nargs="?", help="openapi: output file; publish: target directory; verify: base URL")
     p.add_argument("--force", action="store_true", help="redo the stage even if its outputs are current")
     a = p.parse_args(argv)
     s = settings()
 
+    if a.stage in ("publish", "rollback", "verify"):
+        from . import ops
+
+        if a.stage == "rollback":
+            ops.rollback(s.site_dir)
+            return 0
+        if not a.out:
+            p.error(f"{a.stage} needs an argument")
+        if a.stage == "publish":
+            ops.publish(s.site_dir, s.web_dir, Path(a.out))
+            return 0
+        result = ops.verify(a.out)
+        print(json.dumps(result, indent=1))
+        return 0 if result["ok"] else 1
     if a.stage == "openapi":
         from .api import create_app
 

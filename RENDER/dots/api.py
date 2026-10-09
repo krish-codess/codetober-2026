@@ -569,7 +569,7 @@ def create_app(s: Settings) -> FastAPI:
 
     (s.site_dir / "data").mkdir(parents=True, exist_ok=True)
     app.mount("/data", StaticFiles(directory=s.site_dir / "data"), name="data")
-    if (s.site_dir / "index.html").exists():
-        # The same directory a CDN would serve: the built page next to its data.
-        app.mount("/", StaticFiles(directory=s.site_dir, html=True), name="site")
+    if (s.web_dir / "index.html").exists():
+        # The built page, so one process serves what a CDN would: the page next to its data.
+        app.mount("/", StaticFiles(directory=s.web_dir, html=True), name="web")
     return app
