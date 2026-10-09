@@ -14,14 +14,14 @@ any one of them without the others.
 | [PARSE](PARSE/) | Hierarchical, multilingual feedback classification with active learning | Python, FastAPI, scikit-learn, ONNX Runtime, PostgreSQL, React, TypeScript |
 | [TRANSFORM](TRANSFORM/) | **Gold Standard**: a consumer price index for video game economies, on real EVE Online market data and a simulated shard | Python, Dagster, PostgreSQL, React |
 | [VALIDATE](VALIDATE/) | **tydlc**: property-based testing for data pipelines, with failures shrunk to a minimal dataset | Python, PostgreSQL, DuckDB |
-| [SHIP](SHIP/) | **shipd**: a zero-downtime schema migration controller. Plans a diff against the live schema, applies it as expand/contract with lock guards and auto-revert, while two application versions keep serving traffic | Go, pgroll, PostgreSQL, React, TypeScript, Prometheus, Grafana, Kubernetes |
+| [SHIP](SHIP/) | **shipd**: a zero-downtime schema migration controller. Plans a diff against the live schema, applies it as expand/contract with lock guards and auto-revert, while two application versions keep serving traffic | Go, pgroll, PostgreSQL, React, TypeScript, Prometheus, Grafana |
 | [MEASURE](MEASURE/) | **Your App, Wrapped**: a personalised year-in-review for every user where every percentile claim is exactly true, audited before publishing | Python, dbt, DuckDB, FastAPI, PostgreSQL, React, TypeScript |
 | [LAKE](LAKE/) | **The Compression Bake-Off**: one dataset written as 24 variants across CSV, Parquet, ORC and Avro, measured in bytes actually read and turned into monthly cloud cost | Python, PyArrow, DuckDB, Polars, FastAPI, React, TypeScript |
 | [VISION](VISION/) | **squeeze**: compress a vision model for edge boards (pruning, distillation, INT8) and measure the real accuracy, latency and power tradeoff on the device | Python, PyTorch, ONNX Runtime, OpenVINO, FastAPI, SQLite, React, TypeScript |
 
 ## Running a project
 
-Every project runs with Docker and Compose v2:
+Projects run with Docker and Compose v2:
 
 ```bash
 cd <FOLDER>
@@ -30,8 +30,8 @@ docker compose up --build
 ```
 
 Ports, URLs, non-Docker options and measured results are in each project's own README.
-SHIP and VISION do not have one yet: start from `docker-compose.yml` and `.env.example`,
-and see `docs/` in each for the API reference, decisions and evidence.
+The exception is VISION, whose results and release packages are not committed, so its
+container does not build from a clean clone; its README says what does run.
 
 ## Inside a project folder
 
