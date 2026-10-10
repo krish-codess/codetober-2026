@@ -1,0 +1,28 @@
+{
+ "build_id": "e5c8ff32778a",
+ "meta_bytes": 22813162,
+ "tile_capacity": 32768,
+ "variants": {
+  "pca": {
+   "bytes": 14323400,
+   "dropped_non_finite": 0,
+   "max_depth": 5,
+   "n_points": 1193514,
+   "tiles": 77
+  },
+  "umap-n15-d0.1": {
+   "bytes": 14323640,
+   "dropped_non_finite": 0,
+   "max_depth": 4,
+   "n_points": 1193514,
+   "tiles": 92
+  },
+  "umap-n50-d0.5": {
+   "bytes": 14323384,
+   "dropped_non_finite": 0,
+   "max_depth": 4,
+   "n_points": 1193514,
+   "tiles": 76
+  }
+ }
+}

@@ -1,8 +1,9 @@
 // regl point renderer. Two passes:
 //
-//  1. Accumulate. Every point is one instance of a quad, drawn additively into a floating-point
-//     target as (colour x weight, weight) with a smooth falloff. The target ends up holding, per
-//     pixel, how much "point" landed there and the weighted sum of its colours.
+//  1. Accumulate. Every point is one instance of a triangle, drawn additively into a
+//     floating-point target as (colour x weight, weight). Zoomed out, a point is exactly one
+//     pixel; zoomed in, a disc with a smooth falloff. The target ends up holding, per pixel, how
+//     much "point" landed there and the weighted sum of its colours.
 //  2. Resolve. Density = log(1 + weight) / log(1 + reference), which is what makes a region with
 //     1,000 points per pixel distinguishable from one with 10 (alpha blending saturates at a
 //     handful). Hue is the weighted mean colour, so mixed regions read as mixed.
@@ -52,40 +53,59 @@ attribute vec2 corner;
 attribute vec2 xy;
 attribute vec4 cat;
 attribute float sel;
-uniform vec2 uOrigin, uInv;
-uniform float uSide, uRadius, uColumn, uSelActive;
+uniform vec2 uOrigin, uInv, uHalf;
+uniform float uSide, uRadius, uColumn, uSelActive, uSelFixed;
 uniform sampler2D uPalette;
-uniform vec3 uMuted;
+uniform vec3 uMuted, uFiltered;
 varying vec2 vCorner;
 varying vec3 vColor;
 varying float vWeight;
-vec4 look(float code, float row) { return texture2D(uPalette, vec2((code + 0.5) / 256.0, (row + 0.5) / 4.0)); }
+// cat arrives normalised (code / 255): a native vertex format everywhere, where raw bytes read as floats are not.
+vec4 look(float code, float row) { return texture2D(uPalette, vec2((code * 255.0 + 0.5) / 256.0, (row + 0.5) / 4.0)); }
 void main() {
-  vec4 a = look(cat.x, 0.0), b = look(cat.y, 1.0), c = look(cat.z, 2.0);
-  vec3 color = uColumn < -0.5 ? vec3(1.0) : (uColumn < 0.5 ? a.rgb : (uColumn < 1.5 ? b.rgb : c.rgb));
+  // Texture reads in a vertex shader are the expensive part of a point, so only the ones this
+  // frame needs happen: one for the colour column, one per column that has a filter on it.
+  vec3 color = vec3(1.0);
+  if (uColumn > -0.5) color = look(uColumn < 0.5 ? cat.x : (uColumn < 1.5 ? cat.y : cat.z), uColumn).rgb;
+  float shown = 1.0;
+  if (uFiltered.x > 0.5) shown *= look(cat.x, 0.0).a;
+  if (uFiltered.y > 0.5) shown *= look(cat.y, 1.0).a;
+  if (uFiltered.z > 0.5) shown *= look(cat.z, 2.0).a;
   float w = 1.0;
-  if (uSelActive > 0.5 && sel < 0.5) {
+  if (uSelActive > 0.5 && (uSelFixed < -0.5 ? sel : uSelFixed) < 0.5) {
     // Density mode carries "share selected" in the red channel; colour mode greys the rest out.
     if (uColumn < -0.5) color = vec3(0.0); else { color = uMuted; w = 0.3; }
   }
   vColor = color;
   vWeight = w;
   vCorner = corner;
-  vec2 px = uOrigin + xy * uSide + corner * uRadius;
+  vec2 px = uOrigin + xy * uSide;
+  if (uRadius > 0.75) {
+    px += corner * uRadius; // a triangle around the disc; the fragment shader trims it
+  } else {
+    // A one-pixel point: snap to the pixel it falls in and draw a triangle small enough to cover
+    // that pixel's centre and no other. One triangle and exactly one fragment per point.
+    px = floor(px + uHalf) + 0.5 - uHalf + corner * 0.3;
+  }
   // The alpha of each palette row is the category filter: filtered-out points go off screen.
-  gl_Position = a.a * b.a * c.a > 0.5 ? vec4(px * uInv, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  gl_Position = shown > 0.5 ? vec4(px * uInv, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
 }`;
 
 const FRAG = `
 precision highp float;
-uniform float uWeightScale;
+uniform float uWeightScale, uRadius;
 varying vec2 vCorner;
 varying vec3 vColor;
 varying float vWeight;
 void main() {
-  float d = dot(vCorner, vCorner);
-  if (d > 1.0) discard;
-  float w = vWeight * exp(-2.5 * d) * uWeightScale;
+  float w = vWeight * uWeightScale;
+  // A sprite about one pixel across is a single fragment: it counts as one whole point.
+  // Larger sprites become discs with a smooth falloff, so neighbours blend instead of tiling.
+  if (uRadius > 0.75) {
+    float d = dot(vCorner, vCorner);
+    if (d > 1.0) discard;
+    w *= exp(-2.5 * d * min(1.0, uRadius - 0.75));
+  }
   gl_FragColor = vec4(vColor * w, w);
 }`;
 
@@ -123,6 +143,7 @@ export class Renderer {
   private palette: createREGL.Texture2D;
   private weightScale: number;
   private fboW = 4;
+  private filtered = [0, 0, 0];
   private fboH = 4;
   private drawPoints: createREGL.DrawCommand;
   private resolve: createREGL.DrawCommand;
@@ -164,7 +185,7 @@ export class Renderer {
       vert: VERT,
       frag: FRAG,
       attributes: {
-        corner: [-1, -1, 1, -1, -1, 1, 1, 1],
+        corner: [-1, -1, 3, -1, -1, 3],
         xy: regl.prop<any, "xy">("xy"),
         cat: regl.prop<any, "cat">("cat"),
         sel: regl.prop<any, "sel">("sel"),
@@ -173,15 +194,18 @@ export class Renderer {
         uOrigin: regl.prop<any, "origin">("origin"),
         uSide: regl.prop<any, "side">("side"),
         uInv: regl.prop<any, "inv">("inv"),
+        uHalf: regl.prop<any, "half">("half"),
         uRadius: regl.prop<any, "radius">("radius"),
         uColumn: regl.prop<any, "column">("column"),
         uSelActive: regl.prop<any, "selActive">("selActive"),
+        uSelFixed: regl.prop<any, "selFixed">("selFixed"),
         uMuted: regl.prop<any, "muted">("muted"),
         uPalette: this.palette,
+        uFiltered: () => this.filtered,
         uWeightScale: this.weightScale,
       },
-      primitive: "triangle strip",
-      count: 4,
+      primitive: "triangles",
+      count: 3,
       instances: regl.prop<any, "n">("n"),
       depth: { enable: false },
       blend: { enable: true, func: { src: "one", dst: "one" } },
@@ -212,6 +236,11 @@ export class Renderer {
 
   /** rgba per (column row, category code): colour and, in alpha, whether the category passes the filter. */
   setPalette(data: Uint8Array): void {
+    // Which columns hide anything at all: the shader skips the lookup for the others.
+    this.filtered = [0, 1, 2].map((row) => {
+      for (let code = 0; code < 256; code++) if (data[(row * 256 + code) * 4 + 3] === 0) return 1;
+      return 0;
+    });
     this.palette({ width: 256, height: 4, format: "rgba", type: "uint8", data, min: "nearest", mag: "nearest" });
   }
 
@@ -269,14 +298,16 @@ export class Renderer {
         origin: [(t.square.x - s.cx) * s.scale, (t.square.y - s.cy) * s.scale],
         side: t.square.side * s.scale,
         inv: [2 / w, 2 / h],
+        half: [w / 2, h / 2],
         radius: s.radius,
         column: s.column,
         selActive: s.selectionActive ? 1 : 0,
         muted: s.theme.muted,
         xy: { buffer: t.xy, size: 2, normalized: true, divisor: 1 },
-        cat: { buffer: t.cats, size: 4, normalized: false, divisor: 1 },
+        cat: { buffer: t.cats, size: 4, normalized: true, divisor: 1 },
         // No flags yet for a tile that arrived mid-selection: draw it unselected until the worker answers.
-        sel: t.flags ? { buffer: t.flags, size: 1, normalized: true, divisor: 1 } : { constant: [s.selectionActive ? 0 : 1] },
+        sel: { buffer: t.flags ?? t.cats, size: 1, normalized: true, divisor: 1 },
+        selFixed: t.flags ? -1 : s.selectionActive ? 0 : 1,
       });
     }
     this.fbo.use(() => {

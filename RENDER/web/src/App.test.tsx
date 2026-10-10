@@ -74,6 +74,7 @@ async function ready(openDb = async () => fakeDb(), m: Manifest = manifest) {
   const scene = fakeScene();
   const view = render(<App dataUrl="http://data.test/" createScene={scene.create} openDb={openDb as never} pollMs={1e9} />);
   await screen.findByRole("application");
+  await waitFor(() => expect(scene.options).toBeDefined()); // the element exists one tick before the effect that builds the scene
   act(() => scene.options.onStatus(status));
   return { scene, ...view };
 }
@@ -86,6 +87,7 @@ test("loading, then the plot with its controls", async () => {
   expect(screen.getByRole("status")).toHaveTextContent("Loading the dataset description");
   await act(async () => release(new Response(JSON.stringify(manifest))));
   expect(await screen.findByRole("application")).toHaveAccessibleName(/Scatter plot of 1,000 points.*Arrow keys pan/);
+  await waitFor(() => expect(scene.options).toBeDefined());
   expect(screen.getByText(/3 rows quarantined at ingest/)).toBeInTheDocument();
   expect(screen.getByText(/Loading the first 256 points/)).toBeInTheDocument(); // nothing painted yet
   act(() => scene.options.onStatus(status));
@@ -180,6 +182,8 @@ test("without the token table the counts still work, and the table can be retrie
     return fakeDb();
   };
   const { scene } = await ready(openDb);
+  // Before anything is selected, the search panel is where the failure is explained.
+  expect(await screen.findByRole("alert")).toHaveTextContent(/token table could not be loaded.*HTTP 503.*selection counts still work/);
   act(() => scene.options.onSelection(selection));
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent(/Token statistics are unavailable.*HTTP 503.*counts above do not depend on them/);
@@ -206,6 +210,7 @@ test("stale data: a newer build is offered, not swapped in", async () => {
     const scene = fakeScene();
     render(<App dataUrl="http://data.test/" createScene={scene.create} openDb={(async () => fakeDb()) as never} pollMs={1000} />);
     await screen.findByRole("application");
+    await waitFor(() => expect(scene.options).toBeDefined());
     fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ...manifest, build_id: "build-b", created_at: "2026-10-10T08:30:00Z" })));
     await act(async () => void (await vi.advanceTimersByTimeAsync(1100)));
     const banner = await screen.findByText(/A newer build of the data was published \(build-b, 2026-10-10 08:30 UTC\)/);
@@ -244,7 +249,7 @@ test("controls drive the scene: projection, colour, tool, and the category filte
   expect(scene.did("setVariant")).toEqual([["setVariant", "pca"]]);
   expect(screen.getByText("This build was published without an evaluation.")).toBeInTheDocument();
   await userEvent.selectOptions(screen.getByLabelText("Projection"), "umap-n15-d0.1");
-  expect(screen.getByRole("row", { name: /gain over PCA/ })).toHaveTextContent("0.200 (0.190 to 0.210)");
+  expect(screen.getByRole("row", { name: /gain over PCA/ })).toHaveTextContent("0.2000 (0.1900 to 0.2100)");
 
   await userEvent.click(screen.getByRole("button", { name: "Lasso" }));
   expect(screen.getByRole("button", { name: "Lasso" })).toHaveAttribute("aria-pressed", "true");

@@ -91,16 +91,18 @@ export async function openMetaDb(url: string, expectedBytes: number, onProgress:
     return next;
   };
 
-  return {
+  const api: MetaDb = {
     summary: (ids) =>
       serial(async () => {
         const t0 = performance.now();
         await conn.query("DROP TABLE IF EXISTS sel");
         await conn.insertArrowTable(tableFromArrays({ id: ids.length ? ids : new Uint32Array(0) }), { name: "sel" });
-        const agg = (await conn.query("SELECT min(rank) AS lo, quantile_cont(rank, 0.25) AS q25, median(rank) AS med, quantile_cont(rank, 0.75) AS q75, max(rank) AS hi, avg(n_chars) AS chars FROM meta SEMI JOIN sel USING (id)")).toArray()[0];
+        // One list-valued quantile sorts the selected ranks once; three separate ones sorted them three times.
+        const agg = (await conn.query("SELECT min(rank) AS lo, quantile_cont(rank, [0.25, 0.5, 0.75]) AS q, max(rank) AS hi, avg(n_chars) AS chars FROM meta SEMI JOIN sel USING (id)")).toArray()[0];
+        const q = agg.q ? Array.from(agg.q as Iterable<unknown>, num) : [];
         const top = (await conn.query("SELECT token, rank FROM meta SEMI JOIN sel USING (id) ORDER BY rank LIMIT 10")).toArray();
         return {
-          rank: agg.lo == null ? null : { min: num(agg.lo), q25: num(agg.q25), median: num(agg.med), q75: num(agg.q75), max: num(agg.hi) },
+          rank: agg.lo == null ? null : { min: num(agg.lo), q25: q[0], median: q[1], q75: q[2], max: num(agg.hi) },
           meanChars: agg.chars == null ? null : num(agg.chars),
           top: top.map((r) => ({ token: String(r.token), rank: num(r.rank) })),
           ms: performance.now() - t0,
@@ -113,4 +115,7 @@ export async function openMetaDb(url: string, expectedBytes: number, onProgress:
       await db.terminate();
     },
   };
+  // The first query of each kind pays for plan and code-path warm-up; pay it now, not on the user's first lasso.
+  await api.summary(Uint32Array.of(0));
+  return api;
 }

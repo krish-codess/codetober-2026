@@ -1,0 +1,146 @@
+{
+ "url": "http://127.0.0.1:8030/",
+ "at": "2026-10-10T00:05:59.940Z",
+ "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+ "load": {
+  "navigationToFirstPointsMs": 2083,
+  "sceneToFirstPointsMs": 1709,
+  "pointsInFirstFrameOrSoonAfter": 98304,
+  "firstPointsToAllTilesMs": 630,
+  "tiles": 92,
+  "points": 1193514,
+  "megabytes": 13.7
+ },
+ "panZoom": {
+  "colour by script": {
+   "seconds": 9.974499999999988,
+   "frames": 663,
+   "fps": 66.46949721790573,
+   "frameMs": {
+    "p50": 13.900000000000546,
+    "p95": 27.799999999999272,
+    "p99": 28,
+    "max": 28.300000000000182
+   },
+   "dropped": 0.08144796380090498,
+   "uncappedFrameMs": 19.903333330154418,
+   "pointsDrawn": {
+    "min": 1182429,
+    "max": 1193514
+   },
+   "canvas": [
+    1110,
+    756
+   ],
+   "dpr": 1,
+   "gpu": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+   "shading": "float"
+  },
+  "density only": {
+   "seconds": 9.973400000047684,
+   "frames": 639,
+   "fps": 64.07042733640934,
+   "frameMs": {
+    "p50": 13.900000000001455,
+    "p95": 27.899999999997817,
+    "p99": 28,
+    "max": 28.099999999998545
+   },
+   "dropped": 0.12206572769953052,
+   "uncappedFrameMs": 19.113333336512248,
+   "pointsDrawn": {
+    "min": 1182429,
+    "max": 1193514
+   },
+   "canvas": [
+    1110,
+    756
+   ],
+   "dpr": 1,
+   "gpu": "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+   "shading": "float"
+  }
+ },
+ "lasso": [
+  {
+   "radiusShareOfView": 0.03,
+   "n": 6049,
+   "live": false,
+   "exact": true,
+   "workerMs": 51.5,
+   "latencyMs": 58.700000047683716,
+   "vertices": 96,
+   "waitedMs": 59.30000019073486,
+   "duckdbMs": 330,
+   "selectionToTokensWallMs": 1071
+  },
+  {
+   "radiusShareOfView": 0.08,
+   "n": 53851,
+   "live": false,
+   "exact": true,
+   "workerMs": 33.200000047683716,
+   "latencyMs": 36,
+   "vertices": 96,
+   "waitedMs": 36.799999952316284,
+   "duckdbMs": 236,
+   "selectionToTokensWallMs": 380
+  },
+  {
+   "radiusShareOfView": 0.2,
+   "n": 286485,
+   "live": false,
+   "exact": true,
+   "workerMs": 90.29999995231628,
+   "latencyMs": 93.79999995231628,
+   "vertices": 96,
+   "waitedMs": 94.29999995231628,
+   "duckdbMs": 367,
+   "selectionToTokensWallMs": 988
+  },
+  {
+   "radiusShareOfView": 0.35,
+   "n": 797215,
+   "live": false,
+   "exact": true,
+   "workerMs": 125.39999985694885,
+   "latencyMs": 127.90000009536743,
+   "vertices": 96,
+   "waitedMs": 148,
+   "duckdbMs": 673,
+   "selectionToTokensWallMs": 991
+  },
+  {
+   "radiusShareOfView": 0.49,
+   "n": 1085642,
+   "live": false,
+   "exact": true,
+   "workerMs": 136.29999995231628,
+   "latencyMs": 139.10000014305115,
+   "vertices": 96,
+   "waitedMs": 140.39999985694885,
+   "duckdbMs": 773,
+   "selectionToTokensWallMs": 1021
+  }
+ ],
+ "liveDrag": {
+  "updatesObservedWhileDragging": 58,
+  "countShownBeforeRelease": 613216,
+  "latencyMs": {
+   "median": 50.799999952316284,
+   "max": 162.20000004768372
+  }
+ },
+ "boundedMemory": {
+  "budgetPoints": 300000,
+  "capPoints": 375000,
+  "views": 40,
+  "maxPointsHeld": 372707,
+  "maxPointsDrawn": 207590,
+  "jsHeapMb": {
+   "first": 8.2,
+   "last": 8.6,
+   "max": 31.8
+  }
+ }
+}

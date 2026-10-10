@@ -414,15 +414,17 @@ export class Scene {
   // --- drawing ------------------------------------------------------------------------------
 
   private drawState(): DrawState {
-    const radiusCss = Math.min(5, Math.max(0.9, 0.9 * (this.scale / this.fitScale) ** 0.4));
+    // Sprite radius in device pixels. Zoomed out there are more points than pixels, so a point is
+    // one pixel and the picture is a density map; it grows into a disc as zooming in makes room.
+    const radius = Math.min(5 * this.dpr, Math.max(0.5, 0.35 * this.dpr * (this.scale / this.fitScale) ** 0.45));
     const view = this.viewRect();
     let reference = 8;
     if (this.grid) {
       const inView = pointsInView(this.grid, this.variant.density_grid, this.variant.bounds, view);
       const share = inView > 0 ? Math.min(1, this.pointsDrawn / inView) : 1;
-      reference = exposure(this.grid, this.variant.density_grid, this.variant.bounds, view, this.scale * this.dpr, radiusCss * this.dpr, share);
+      reference = exposure(this.grid, this.variant.density_grid, this.variant.bounds, view, this.scale * this.dpr, radius, share);
     }
-    return { cx: this.cx, cy: this.cy, scale: this.scale * this.dpr, radius: radiusCss * this.dpr, column: this.column, selectionActive: this.selectionActive, reference, theme: THEMES[this.theme], keys: this.drawKeys };
+    return { cx: this.cx, cy: this.cy, scale: this.scale * this.dpr, radius, column: this.column, selectionActive: this.selectionActive, reference, theme: THEMES[this.theme], keys: this.drawKeys };
   }
 
   private frame(): void {

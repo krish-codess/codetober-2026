@@ -35,7 +35,7 @@ const TOOLS: { tool: Tool; label: string; hint: string }[] = [
 // DuckDB-WASM is a separate chunk, fetched only after the first frame is on screen.
 const lazyOpenDb: typeof openMetaDb = async (...args) => (await import("./lib/db")).openMetaDb(...args);
 
-const ci = (v: Interval | null | undefined): string => (v ? `${v.mean.toFixed(3)} (${v.lo.toFixed(3)} to ${v.hi.toFixed(3)})` : "n/a");
+const ci = (v: Interval | null | undefined): string => (v ? `${v.mean.toFixed(4)} (${v.lo.toFixed(4)} to ${v.hi.toFixed(4)})` : "n/a");
 
 export function Explorer({ manifest, dataUrl, budget, createScene, openDb = lazyOpenDb }: Props) {
   const theme = useTheme();
@@ -293,6 +293,11 @@ export function Explorer({ manifest, dataUrl, budget, createScene, openDb = lazy
               <button disabled={meta.status !== "ready"}>Find</button>
             </form>
             {meta.status === "loading" && <p className="muted small">Available once the token table has loaded ({Math.round(meta.progress * 100)}%).</p>}
+            {meta.status === "error" && !selection && (
+              <p className="note" role="alert">
+                The token table could not be loaded ({meta.message}), so search and token statistics are off. The plot and selection counts still work. <button onClick={() => setMetaTry((n) => n + 1)}>Retry</button>
+              </p>
+            )}
             {results && results.length === 0 && <p className="muted small">No token contains “{query}”.</p>}
             {results && results.length > 0 && (
               <ul className="results">
@@ -340,7 +345,7 @@ export function Explorer({ manifest, dataUrl, budget, createScene, openDb = lazy
                       <th scope="row">{c.name} purity</th>
                       <td>
                         {ci(m.purity[c.name])}
-                        <span className="muted small"> chance {manifest.eval.chance?.purity[c.name]?.toFixed(3)}</span>
+                        <span className="muted small"> chance {manifest.eval.chance?.purity[c.name]?.toFixed(4)}</span>
                       </td>
                     </tr>
                   ))}

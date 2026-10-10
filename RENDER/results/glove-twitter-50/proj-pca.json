@@ -1,0 +1,22 @@
+{
+ "explained_variance": 0.0861112203514504,
+ "key": {
+  "landmarks": null,
+  "params": {
+   "method": "pca"
+  },
+  "raw": [
+   {
+    "bytes": 510889212,
+    "name": "glove.twitter.27B.50d.txt",
+    "sha256": "2c57d2f550c0a44e85a53c2a307b986bb60835c82ea458192d7effe390ca5e54"
+   }
+  ],
+  "seed": 15
+ },
+ "non_finite": 0,
+ "rows": 1193514,
+ "rows_per_s": 642897,
+ "seconds": 1.9,
+ "variant": "pca"
+}

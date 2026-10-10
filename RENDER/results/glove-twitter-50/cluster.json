@@ -1,0 +1,15 @@
+{
+ "inertia": 840817.6875,
+ "key": {
+  "k": 24,
+  "raw": [
+   {
+    "bytes": 510889212,
+    "name": "glove.twitter.27B.50d.txt",
+    "sha256": "2c57d2f550c0a44e85a53c2a307b986bb60835c82ea458192d7effe390ca5e54"
+   }
+  ],
+  "seed": 15
+ },
+ "seconds": 18.7
+}

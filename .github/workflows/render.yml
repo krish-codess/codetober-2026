@@ -90,7 +90,7 @@ jobs:
         working-directory: RENDER/web
       - run: npm run e2e
         working-directory: RENDER/web
-      - name: The assembled static site passes the outside-in check and survives a rollback
+      - name: The assembled static site passes the outside-in check
         run: |
           python -m dots publish /tmp/site
           python -m http.server 8090 --directory /tmp/site >/dev/null 2>&1 &

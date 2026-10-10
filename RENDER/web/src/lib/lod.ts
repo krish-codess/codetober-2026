@@ -69,8 +69,9 @@ export function exposure(grid: Uint32Array, cells: number, bounds: readonly [num
   let peak = 0;
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) peak = Math.max(peak, grid[j * cells + i]);
   const perPixel = (peak * drawnShare) / (cell * pxPerUnit) ** 2;
-  // 1.15 r^2 is the integral of the sprite's exp(-2.5 d^2) falloff over its disc.
-  return Math.max(1.5, perPixel * 1.15 * radiusPx * radiusPx);
+  // Weight one point deposits: 1 for a one-pixel sprite, about 1.15 r^2 for a disc (the integral
+  // of its exp(-2.5 d^2) falloff).
+  return Math.max(1.5, perPixel * Math.max(1, 1.15 * radiusPx * radiusPx));
 }
 
 /** Points inside the view according to the density grid (for "showing n of m"). */

@@ -1,0 +1,20 @@
+{
+ "accepted": 1193514,
+ "dim": 50,
+ "lines": 1193517,
+ "quarantine_reasons": {
+  "duplicate_token": 2,
+  "empty_token": 1
+ },
+ "quarantined": 3,
+ "raw": [
+  {
+   "bytes": 510889212,
+   "name": "glove.twitter.27B.50d.txt",
+   "sha256": "2c57d2f550c0a44e85a53c2a307b986bb60835c82ea458192d7effe390ca5e54"
+  }
+ ],
+ "rows_per_s": 12627,
+ "seconds": 94.5,
+ "source": "glove-twitter-50"
+}

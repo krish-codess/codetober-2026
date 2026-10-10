@@ -52,7 +52,11 @@ directly was not attempted: the machine this was built on had 0.6 to 2 GB of mem
 landmark fit takes 277 s and placing the other 1,093,514 rows 964 s (1,134 rows/s) for
 `n_neighbors=15`. This is also how a projection is used once new data arrives, which is why the
 evaluation reports fitted and placed rows separately rather than hiding the difference.
-*Cost:* placed rows are measurably worse than fitted rows (see README, "Projection quality").
+*Cost:* a row's true nearest neighbours are usually not among the 100,000 landmarks, which caps
+fine-grained recall for every row. On the small synthetic test set placed rows are clearly worse
+than fitted ones (recall 0.13 against 0.19); on the real data the difference is within noise
+(README, "Projection quality"). The second variant (`n_neighbors=50`) took 837 s + 3,029 s with
+other jobs running on the machine.
 *Rejected:* t-SNE (no out-of-sample placement); parametric UMAP (a neural network to train and
 version for little gain here).
 
@@ -133,10 +137,16 @@ back. The fullest visible cell, converted to points per pixel, sets the top of t
 *Known cost:* inside one grid cell the estimate is an average, so very local peaks clip at the top
 of the ramp.
 
-**R3. Instanced quads, not `gl.POINTS`.** One instanced draw call per tile; point size is not
-subject to driver limits and the falloff is computed in the quad's own coordinates. The view
-centre is subtracted in float64 on the CPU, so the shader's float32 only holds screen-sized
-numbers and deep zoom does not jitter.
+**R3. Instanced triangles, one per point, one draw call per tile.** Zoomed out there are more
+points than pixels, so a point is snapped to the pixel it falls in and drawn as a triangle small
+enough to cover that pixel's centre and no other: exactly one fragment. Zoomed in, the triangle
+grows around a disc with a smooth falloff and the fragment shader trims it. The view centre is
+subtracted in float64 on the CPU, so the shader's float32 only holds screen-sized numbers and
+deep zoom does not jitter.
+*Rejected, by measurement on the 1.19M-point view:* instanced quads (4 vertices and 2 triangles
+per point: frames of 19 to 24 ms against 18 to 20 ms); `gl.POINTS` (a quarter of the vertices but
+no faster, because ANGLE on Direct3D expands points in a geometry shader); a single triangle
+around a full-size square (more fragments to discard: slower).
 
 **R4. Degradation.** No float render target: half-float, then scaled 8-bit with a notice in the
 status line. No vertex texture units or no WebGL: a message instead of a blank canvas. Context
@@ -145,12 +155,31 @@ lost: a message with a reload button.
 **R5. Selection highlight is a per-tile byte buffer** written by the worker and uploaded as-is, so
 drawing never depends on the selection's size or shape.
 
-**R6. Colour.** Categorical slots and the sequential blue ramp come from a palette validated for
-colour-vision deficiency and for contrast on both surfaces (light `#fcfcfb`, dark `#1a1a19`), with
-separate steps for dark mode. Only the eight largest categories of a column get a hue; the rest
+**R6. Colour.** Categorical slots and the sequential blue ramp come from a palette checked with a
+validator for colour-vision-deficiency separation, lightness band, chroma and contrast on both
+surfaces (light `#fcfcfb`, dark `#1a1a19`), with separate steps for dark mode. Dark passes every
+check; in light mode three hues (aqua, yellow, magenta) are below 3:1 against the surface, which
+is acceptable only because every category is also named in text. Only the eight largest categories of a column get a hue; the rest
 share grey, because a ninth and tenth hue would not be tellable apart. Colour is never the only
 carrier: the legend, the selection table and the hover card name every category in text, and
 values are printed as numbers next to every bar.
+
+**R7. Where a frame goes, and why 1.19M points sit at the edge of 60 fps on integrated graphics.**
+Measured on Intel Iris Xe by switching stages off: nothing drawn, 1.5 ms; every fragment scissored
+away, about 10.5 ms (vertex work and triangle setup for 1.19M instances); normal, 15.6 to 19.9 ms.
+So about 10 ms is vertices and about 8 ms is rasterising a million one-pixel triangles. What
+moved the number: sprite size (at the original 1.8-pixel sprites a frame took 47 to 63 ms, about
+24 fps; one-pixel sprites when zoomed out brought it under 20 ms), one triangle instead of two,
+and vertex formats the driver does not have to convert (normalised bytes, no constant attribute:
+the scissored cost fell from 12 to 13 ms to 10.5 ms).
+What did not: the render-target format (float, half-float and 8-bit cost the same, so blending
+bandwidth is not the limit), and vertex-shader texture lookups (three per vertex down to at most
+one: no change).
+*Not built:* thinning the point set while the view is moving. It would hold 60 fps on any GPU,
+but by drawing fewer than a million points, which is the opposite of the requirement. The honest
+result is in the README: about 60 fps on average, not on every frame, on this GPU.
+*What would actually fix it:* pre-aggregated density tiles for levels where points outnumber
+pixels (draw a texture, not points), or a compute-shader rasteriser on WebGPU.
 
 ## Selection and metadata
 
@@ -159,6 +188,9 @@ category, purity, entropy and lift come from the category bytes already in the t
 worker, while the mouse is still down. Token statistics (frequency-rank quartiles, the most
 frequent tokens, search, hover lookup) need the metadata table and come from DuckDB-WASM once the
 drag ends. Neither involves a server; the end-to-end test asserts zero network requests.
+Measured on 1.19M points: counts in 36 to 165 ms, token statistics 236 to 871 ms after that. The
+three rank quantiles are one list-valued aggregate (one sort, not three), and a throwaway query
+at load pays DuckDB's first-query cost before the user's first lasso.
 
 **S2. One query in flight, latest outline wins.** A drag produces far more outlines than answers
 are needed; anything queued behind the in-flight query is replaced by the newest.

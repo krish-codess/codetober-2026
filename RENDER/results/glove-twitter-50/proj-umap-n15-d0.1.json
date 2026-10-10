@@ -1,0 +1,26 @@
+{
+ "fit_seconds": 277.3,
+ "key": {
+  "landmarks": 100000,
+  "params": {
+   "method": "umap",
+   "min_dist": 0.1,
+   "n_neighbors": 15
+  },
+  "raw": [
+   {
+    "bytes": 510889212,
+    "name": "glove.twitter.27B.50d.txt",
+    "sha256": "2c57d2f550c0a44e85a53c2a307b986bb60835c82ea458192d7effe390ca5e54"
+   }
+  ],
+  "seed": 15
+ },
+ "non_finite": 0,
+ "place_seconds": 964.1,
+ "placed_rows_per_s": 1134,
+ "rows": 1193514,
+ "rows_per_s": 940,
+ "seconds": 1269.5,
+ "variant": "umap-n15-d0.1"
+}
