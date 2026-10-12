@@ -1,0 +1,1779 @@
+{
+  "components": {
+    "schemas": {
+      "Coverage": {
+        "properties": {
+          "cell_deg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Grid cell size in degrees",
+            "title": "Cell Deg"
+          },
+          "cells": {
+            "description": "Rows of [cx, cy, reliability]; the cell spans cx*cell_deg..(cx+1)*cell_deg in longitude",
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cell_deg",
+          "cells",
+          "truncated"
+        ],
+        "title": "Coverage",
+        "type": "object"
+      },
+      "DarkEvent": {
+        "properties": {
+          "classification": {
+            "enum": [
+              "dark",
+              "coverage_gap",
+              "position_jump"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "distance_nm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Nm"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "end_reliability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reliability"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "First position after it; null while still silent",
+            "title": "Ended At"
+          },
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "implied_speed_kn": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implied Speed Kn"
+          },
+          "impossible_speed": {
+            "title": "Impossible Speed",
+            "type": "boolean"
+          },
+          "mmsi": {
+            "title": "Mmsi",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "neighbours_heard": {
+            "description": "Other vessels heard nearby during the first 30 minutes of silence",
+            "title": "Neighbours Heard",
+            "type": "integer"
+          },
+          "reasons": {
+            "description": "Plain-language evidence behind the classification and score",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "score": {
+            "description": "Suspiciousness, 0-100",
+            "title": "Score",
+            "type": "number"
+          },
+          "start": {
+            "description": "[lon, lat]",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Start",
+            "type": "array"
+          },
+          "start_reliability": {
+            "description": "Worst reception (0-1) along the track ahead of the last position",
+            "title": "Start Reliability",
+            "type": "number"
+          },
+          "started_at": {
+            "description": "Last position before the silence",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mmsi",
+          "name",
+          "flag",
+          "classification",
+          "score",
+          "impossible_speed",
+          "started_at",
+          "ended_at",
+          "duration_s",
+          "start",
+          "end",
+          "distance_nm",
+          "implied_speed_kn",
+          "start_reliability",
+          "end_reliability",
+          "neighbours_heard",
+          "reasons"
+        ],
+        "title": "DarkEvent",
+        "type": "object"
+      },
+      "DarkEvents": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DarkEvent"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "DarkEvents",
+        "type": "object"
+      },
+      "Error": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "Error",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "description": "Stable machine-readable code",
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "description": "Per-field problems, when the input was invalid",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "Live": {
+        "properties": {
+          "data_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fix time of the newest position in the system",
+            "title": "Data Time"
+          },
+          "server_time": {
+            "description": "Pass back as `since` to fetch only what changed",
+            "format": "date-time",
+            "title": "Server Time",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True if `limit` cut the result; zoom in or raise the limit",
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "vessels": {
+            "description": "Rows of [mmsi, lon, lat, sog_kn, cog_deg, heading_deg, fix_time_unix_s]",
+            "items": {
+              "maxItems": 7,
+              "minItems": 7,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Vessels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "server_time",
+          "data_time",
+          "truncated",
+          "vessels"
+        ],
+        "title": "Live",
+        "type": "object"
+      },
+      "Ready": {
+        "properties": {
+          "database": {
+            "const": "ok",
+            "title": "Database",
+            "type": "string"
+          },
+          "ingest_stale": {
+            "description": "True when nothing has been ingested for over two minutes",
+            "title": "Ingest Stale",
+            "type": "boolean"
+          },
+          "newest_position_age_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Position Age S"
+          },
+          "newest_position_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fix time of the newest stored position",
+            "title": "Newest Position At"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "newest_position_at",
+          "newest_position_age_s",
+          "ingest_stale"
+        ],
+        "title": "Ready",
+        "type": "object"
+      },
+      "Stats": {
+        "properties": {
+          "events": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Dark events by classification",
+            "title": "Events",
+            "type": "object"
+          },
+          "newest_position_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest Position At"
+          },
+          "positions_estimate": {
+            "description": "Planner estimate; exact counts are too slow to serve",
+            "title": "Positions Estimate",
+            "type": "integer"
+          },
+          "quarantine": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Quarantined inputs by reason",
+            "title": "Quarantine",
+            "type": "object"
+          },
+          "vessels": {
+            "title": "Vessels",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vessels",
+          "positions_estimate",
+          "newest_position_at",
+          "events",
+          "quarantine"
+        ],
+        "title": "Stats",
+        "type": "object"
+      },
+      "Track": {
+        "properties": {
+          "mmsi": {
+            "title": "Mmsi",
+            "type": "integer"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `cursor` for the next page; null on the last page",
+            "title": "Next Cursor"
+          },
+          "points": {
+            "description": "Rows of [fix_time_unix_s, lon, lat, sog_kn, cog_deg], oldest first",
+            "items": {
+              "maxItems": 5,
+              "minItems": 5,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mmsi",
+          "points",
+          "next_cursor"
+        ],
+        "title": "Track",
+        "type": "object"
+      },
+      "Trails": {
+        "properties": {
+          "trails": {
+            "additionalProperties": {
+              "items": {
+                "maxItems": 3,
+                "minItems": 3,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "description": "mmsi -> [[lon, lat, fix_time_unix_s], ...], oldest first",
+            "title": "Trails",
+            "type": "object"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "truncated",
+          "trails"
+        ],
+        "title": "Trails",
+        "type": "object"
+      },
+      "Vessel": {
+        "properties": {
+          "beam_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beam M"
+          },
+          "callsign": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callsign"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "events": {
+            "description": "Dark events on record for this vessel",
+            "title": "Events",
+            "type": "integer"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ISO 3166 alpha-2 of the MMSI's country of registry",
+            "title": "Flag"
+          },
+          "imo": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imo"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "length_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Length M"
+          },
+          "lon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lon"
+          },
+          "mmsi": {
+            "title": "Mmsi",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ship_type": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AIS ship type code, 1-255",
+            "title": "Ship Type"
+          },
+          "sog": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sog"
+          }
+        },
+        "required": [
+          "mmsi",
+          "name",
+          "callsign",
+          "imo",
+          "ship_type",
+          "length_m",
+          "beam_m",
+          "flag",
+          "country",
+          "first_seen",
+          "last_seen",
+          "lon",
+          "lat",
+          "sog",
+          "events"
+        ],
+        "title": "Vessel",
+        "type": "object"
+      },
+      "VesselHit": {
+        "properties": {
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          },
+          "mmsi": {
+            "title": "Mmsi",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "mmsi",
+          "name",
+          "flag"
+        ],
+        "title": "VesselHit",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Live vessel positions, tracks, and ranked dark events. Read-only; all times are UTC.",
+    "title": "GHOST FLEET",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/coverage": {
+      "get": {
+        "description": "The empirical reception grid the detector reasons with.",
+        "operationId": "coverage_api_v1_coverage_get",
+        "parameters": [
+          {
+            "description": "minLon,minLat,maxLon,maxLat in degrees",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "minLon,minLat,maxLon,maxLat in degrees",
+              "examples": [
+                "4,58,12,62"
+              ],
+              "title": "Bbox"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20000,
+              "maximum": 50000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Coverage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Coverage",
+        "tags": [
+          "context"
+        ]
+      }
+    },
+    "/api/v1/dark-events": {
+      "get": {
+        "description": "Silences ranked by suspiciousness, highest first. Ties break on id, so paging never skips or repeats.",
+        "operationId": "dark_events_api_v1_dark_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "classification",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "dark",
+                    "coverage_gap",
+                    "position_jump"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Classification"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_score",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Min Score",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Only reappearances that needed an impossible speed",
+            "in": "query",
+            "name": "impossible_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only reappearances that needed an impossible speed",
+              "title": "Impossible Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mmsi",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "description": "Maritime Mobile Service Identity of a ship station",
+                  "maximum": 799999999,
+                  "minimum": 200000000,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mmsi"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "`next_cursor` from the previous page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`next_cursor` from the previous page",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DarkEvents"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Dark Events",
+        "tags": [
+          "dark events"
+        ]
+      }
+    },
+    "/api/v1/dark-events/{event_id}": {
+      "get": {
+        "operationId": "dark_event_api_v1_dark_events__event_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Event Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DarkEvent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Dark Event",
+        "tags": [
+          "dark events"
+        ]
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "operationId": "stats_api_v1_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Stats",
+        "tags": [
+          "context"
+        ]
+      }
+    },
+    "/api/v1/vessels/live": {
+      "get": {
+        "description": "Latest known position of every vessel in view. Poll with `since` to receive only changes.",
+        "operationId": "live_api_v1_vessels_live_get",
+        "parameters": [
+          {
+            "description": "minLon,minLat,maxLon,maxLat in degrees",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "minLon,minLat,maxLon,maxLat in degrees",
+              "examples": [
+                "4,58,12,62"
+              ],
+              "title": "Bbox"
+            }
+          },
+          {
+            "description": "Only vessels updated after this instant (a previous `server_time`)",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only vessels updated after this instant (a previous `server_time`)",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "Hide vessels not heard for this long, relative to the newest data",
+            "in": "query",
+            "name": "max_age_h",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "description": "Hide vessels not heard for this long, relative to the newest data",
+              "exclusiveMinimum": 0,
+              "maximum": 168,
+              "title": "Max Age H",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50000,
+              "maximum": 100000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Live"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Live",
+        "tags": [
+          "vessels"
+        ]
+      }
+    },
+    "/api/v1/vessels/search": {
+      "get": {
+        "description": "Up to 20 best matches, MMSI order. A bounded lookup, not a listing.",
+        "operationId": "search_api_v1_vessels_search_get",
+        "parameters": [
+          {
+            "description": "Name fragment, or leading MMSI digits",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Name fragment, or leading MMSI digits",
+              "maxLength": 40,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VesselHit"
+                  },
+                  "title": "Response Search Api V1 Vessels Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "vessels"
+        ]
+      }
+    },
+    "/api/v1/vessels/trails": {
+      "get": {
+        "description": "Recent track of each vessel currently in the box. Meant for a zoomed-in map: capped at `max_vessels`.",
+        "operationId": "trails_api_v1_vessels_trails_get",
+        "parameters": [
+          {
+            "description": "minLon,minLat,maxLon,maxLat in degrees",
+            "in": "query",
+            "name": "bbox",
+            "required": true,
+            "schema": {
+              "description": "minLon,minLat,maxLon,maxLat in degrees",
+              "title": "Bbox",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minutes",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 720,
+              "minimum": 1,
+              "title": "Minutes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_vessels",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Max Vessels",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trails"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Trails",
+        "tags": [
+          "vessels"
+        ]
+      }
+    },
+    "/api/v1/vessels/{mmsi}": {
+      "get": {
+        "operationId": "vessel_api_v1_vessels__mmsi__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mmsi",
+            "required": true,
+            "schema": {
+              "description": "Maritime Mobile Service Identity of a ship station",
+              "maximum": 799999999,
+              "minimum": 200000000,
+              "title": "Mmsi",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vessel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Vessel",
+        "tags": [
+          "vessels"
+        ]
+      }
+    },
+    "/api/v1/vessels/{mmsi}/track": {
+      "get": {
+        "description": "A vessel's positions, oldest first, paged by fix time (the sort key is the primary key, so pages are stable).",
+        "operationId": "track_api_v1_vessels__mmsi__track_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mmsi",
+            "required": true,
+            "schema": {
+              "description": "Maritime Mobile Service Identity of a ship station",
+              "maximum": 799999999,
+              "minimum": 200000000,
+              "title": "Mmsi",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Inclusive lower bound, ISO 8601",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive lower bound, ISO 8601",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "Exclusive upper bound, ISO 8601",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive upper bound, ISO 8601",
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 5000,
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "`next_cursor` from the previous page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`next_cursor` from the previous page",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Track",
+        "tags": [
+          "vessels"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "description": "Runs a real query. 503 if the database cannot answer; `degraded` if it answers but ingestion has stalled.",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ready"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Readyz",
+        "tags": [
+          "operations"
+        ]
+      }
+    }
+  }
+}

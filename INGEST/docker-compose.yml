@@ -1,0 +1,183 @@
+# The whole system, one command:  cp .env.example .env && docker compose up --build
+# UI + API  http://localhost:8000     Grafana  http://localhost:3000     Prometheus  http://localhost:9090
+
+x-app: &app
+  build: .
+  image: ghostfleet:${GHOST_TAG:-dev}
+  restart: unless-stopped
+  environment: &env
+    GHOST_KAFKA: kafka:9092
+    GHOST_LOG_LEVEL: ${GHOST_LOG_LEVEL:-INFO}
+    GHOST_METRICS_PORT: "9100"
+
+x-worker-health: &worker-health
+  # Scrapes the worker's own metrics: healthy only if it completed a dependency round trip recently.
+  test: ["CMD", "ghostfleet", "health", "http://127.0.0.1:9100/metrics", "--max-age", "180"]
+  interval: 20s
+  timeout: 6s
+  retries: 3
+  start_period: 40s
+
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ghost
+      POSTGRES_USER: ghost_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ghost_owner -d ghost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:4.1.2
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_HEAP_OPTS: -Xmx512m -Xms256m
+    volumes: ["kafkadata:/var/lib/kafka/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 8s
+      retries: 15
+      start_period: 20s
+
+  # Runs once: schema migrations (as the owner, the only place the owner credential is used),
+  # service-role passwords, Kafka topics.
+  init:
+    <<: *app
+    restart: "no"
+    command: ["init"]
+    environment:
+      <<: *env
+      GHOST_DSN: postgresql://ghost_owner:${POSTGRES_PASSWORD}@postgis:5432/ghost
+      GHOST_INGEST_PASSWORD: ${GHOST_INGEST_PASSWORD:?}
+      GHOST_DETECT_PASSWORD: ${GHOST_DETECT_PASSWORD:?}
+      GHOST_API_PASSWORD: ${GHOST_API_PASSWORD:?}
+      GHOST_METRICS_PORT: "0"
+    depends_on:
+      postgis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  # The bundled provider: a live NMEA relay over TCP, defects included.
+  sim:
+    <<: *app
+    command: ["sim", "--serve", "0.0.0.0:5631", "--ships", "${SIM_SHIPS:-3000}", "--step", "20"]
+    environment: { GHOST_LOG_LEVEL: WARNING }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 5631), 3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Runs once: a few hours of history, generated and pushed through the normal decode -> Kafka -> sink
+  # path, so the map, the coverage grid and the event ranking have something to show immediately.
+  seed:
+    <<: *app
+    restart: "no"
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        test -f /app/data/seed/done ||
+        (ghostfleet sim --ships ${SIM_SHIPS:-3000} --step 60 --hours ${SEED_HOURS:-6} --out /app/data/seed/history/history.nmea
+        --truth /app/data/seed/truth.json &&
+        ghostfleet replay /app/data/seed/history --source seed && touch /app/data/seed/done)
+    environment:
+      <<: *env
+      GHOST_METRICS_PORT: "0"
+    volumes: ["archive:/app/data"]
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  collector:
+    <<: *app
+    command: ["collect"]
+    environment:
+      <<: *env
+      GHOST_SOURCES: ${GHOST_SOURCES:-sim_a=tcp://sim:5631,sim_b=tcp://sim:5631}
+      AISSTREAM_API_KEY: ${AISSTREAM_API_KEY:-}
+    volumes: ["archive:/app/data"]
+    healthcheck: *worker-health
+    depends_on:
+      init: { condition: service_completed_successfully }
+      sim: { condition: service_healthy }
+
+  sink:
+    <<: *app
+    command: ["sink"]
+    environment:
+      <<: *env
+      GHOST_DSN: postgresql://ghost_ingest:${GHOST_INGEST_PASSWORD}@postgis:5432/ghost
+    healthcheck: *worker-health
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  detector:
+    <<: *app
+    command: ["detect"]
+    environment:
+      <<: *env
+      GHOST_DSN: postgresql://ghost_detect:${GHOST_DETECT_PASSWORD}@postgis:5432/ghost
+    healthcheck: *worker-health
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  api:
+    <<: *app
+    command: ["api", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      GHOST_DSN: postgresql://ghost_api:${GHOST_API_PASSWORD}@postgis:5432/ghost
+      GHOST_CORS_ORIGINS: ${GHOST_CORS_ORIGINS:-}
+      GHOST_LOG_LEVEL: ${GHOST_LOG_LEVEL:-INFO}
+    ports: ["${API_PORT:-8000}:8000"]
+    healthcheck:
+      # /readyz runs a real query; a constant 200 would say nothing about the database.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    volumes:
+      - ./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - promdata:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["127.0.0.1:${GRAFANA_PORT:-3000}:3000"]
+    depends_on: [prometheus]
+
+volumes:
+  pgdata:
+  kafkadata:
+  archive:
+  promdata:

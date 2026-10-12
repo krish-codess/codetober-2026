@@ -1,0 +1,65 @@
+# Alert rules, shipped with the service. Each one says what a human should look at first.
+groups:
+  - name: ghostfleet
+    rules:
+      - alert: ProviderDown
+        expr: ghost_provider_connected == 0
+        for: 3m
+        labels: { severity: warning }
+        annotations:
+          summary: "AIS provider {{ $labels.source }} has been disconnected for 3 minutes"
+          description: "The collector is retrying with backoff. Other providers still cover the fleet; a single-provider deployment is now blind. Check: docker compose logs collector"
+
+      - alert: AllProvidersDown
+        expr: sum(ghost_provider_connected) == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "No AIS provider is connected"
+          description: "Nothing is being received. The detector reasons from data time, so it will not flag the fleet as dark, but the map is going stale."
+
+      - alert: IngestStalled
+        expr: sum(rate(ghost_sentences_total[5m])) > 0 and sum(rate(ghost_positions_inserted_total[5m])) == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Sentences are arriving but no positions are reaching PostGIS"
+          description: "Kafka or the sink is the break. Nothing is lost: the archive holds everything unacknowledged. Check sink health and ghost_archive_backlog_bytes."
+
+      - alert: ArchiveBacklogGrowing
+        expr: ghost_archive_backlog_bytes > 50e6
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.source }}: {{ $value | humanize1024 }}B archived but not yet acknowledged by Kafka"
+          description: "The pump is behind: Kafka is down or slow, or decoding cannot keep up with the provider."
+
+      - alert: IngestLagOverBudget
+        expr: histogram_quantile(0.95, sum by (le) (rate(ghost_ingest_lag_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 receive-to-stored latency is {{ $value | humanizeDuration }}, over the 2 s budget"
+          description: "Expected while a backlog or a replay drains; otherwise the sink is saturated. Add a sink replica (up to one per partition)."
+
+      - alert: WorkerStuck
+        expr: time() - ghost_last_success_timestamp_seconds > 300
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} has not completed a dependency round trip for 5 minutes"
+
+      - alert: QuarantineSpike
+        expr: sum(rate(ghost_quarantined_total[10m])) / sum(rate(ghost_sentences_total[10m])) > 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of input is being quarantined (normal is about 4%)"
+          description: "A provider changed format or is sending garbage. Group the quarantine table by reason; after a fix, run: ghostfleet replay-dlq --reason REASON"
+
+      - alert: ApiErrors
+        expr: sum(rate(ghost_http_request_seconds_count{status=~"5.."}[5m])) / sum(rate(ghost_http_request_seconds_count[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of API requests are failing with 5xx"
