@@ -1,0 +1,6 @@
+# Rollback, done by hand against the local stack (the compose drill is scripts/rollback-drill.sh)
+serving before:   ca3d7745-e611-4805-a545-8a1aade6f7d3 champion=s_learner scored=true
+after retraining: 8e830cfe-f88d-4873-97a8-209cf4340af8 champion=x_learner scored=true
+{"retired":"8e830cfe-f88d-4873-97a8-209cf4340af8"}
+after rollback:   ca3d7745-e611-4805-a545-8a1aade6f7d3 champion=s_learner scored=true
+experiments:      complete, retired

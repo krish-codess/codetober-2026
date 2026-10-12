@@ -1,0 +1,104 @@
+# cp .env.example .env   (replace each CHANGE_ME)   &&   docker compose up --build
+#   -> http://localhost:8080   the dashboard (nginx) in front of the API
+#
+# Start order: db -> migrate -> batch (generate + ingest + train + score, idempotent) -> api -> web.
+# Each service connects with its own database user.
+#
+# docker compose run --rm batch train --dataset synthetic         retrain
+# docker compose run --rm batch score --dataset synthetic         batch-score with the new champion
+# docker compose run --rm batch policy --dataset synthetic --budget 5000 --cost 1 --value 20 --out /data/export/policy.csv
+# docker compose run --rm batch retire <experiment-id>            roll back to the previous experiment
+
+x-app: &app
+  build:
+    context: .
+    target: app
+    args:
+      CODE_VERSION: ${UPLIFT_CODE_VERSION:-unknown}
+  image: uplift-app:${UPLIFT_IMAGE_TAG:-local}
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-app-env: &app-env
+  UPLIFT_ENV: ${UPLIFT_ENV:-production}
+  UPLIFT_DATA_DIR: /data
+  UPLIFT_READ_TOKEN: ${UPLIFT_READ_TOKEN:?set UPLIFT_READ_TOKEN in .env}
+  UPLIFT_ADMIN_TOKEN: ${UPLIFT_ADMIN_TOKEN:?set UPLIFT_ADMIN_TOKEN in .env}
+  UPLIFT_LOG_LEVEL: ${UPLIFT_LOG_LEVEL:-INFO}
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: uplift_owner
+      POSTGRES_PASSWORD: ${UPLIFT_OWNER_DB_PASSWORD:?set UPLIFT_OWNER_DB_PASSWORD in .env}
+      POSTGRES_DB: uplift
+      UPLIFT_API_DB_PASSWORD: ${UPLIFT_API_DB_PASSWORD:?set UPLIFT_API_DB_PASSWORD in .env}
+      UPLIFT_BATCH_DB_PASSWORD: ${UPLIFT_BATCH_DB_PASSWORD:?set UPLIFT_BATCH_DB_PASSWORD in .env}
+    volumes:
+      - uplift-db:/var/lib/postgresql
+      - ./deploy/init-roles.sh:/docker-entrypoint-initdb.d/init-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uplift_owner -d uplift"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["migrate"]
+    environment:
+      <<: *app-env
+      UPLIFT_MIGRATE_DATABASE_URL: postgresql://uplift_owner:${UPLIFT_OWNER_DB_PASSWORD}@db:5432/uplift
+    depends_on:
+      db: { condition: service_healthy }
+
+  batch:
+    <<: *app
+    command: ["seed", "--units", "${UPLIFT_SEED_UNITS:-200000}"]
+    environment:
+      <<: *app-env
+      UPLIFT_BATCH_DATABASE_URL: postgresql://uplift_batch:${UPLIFT_BATCH_DB_PASSWORD}@db:5432/uplift
+    volumes:
+      - uplift-data:/data
+    tmpfs: [/tmp]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  api:
+    <<: *app
+    command: ["serve", "--host", "0.0.0.0"]
+    environment:
+      <<: *app-env
+      UPLIFT_DATABASE_URL: postgresql://uplift_api:${UPLIFT_API_DB_PASSWORD}@db:5432/uplift
+    volumes:
+      - uplift-data:/data:ro # the API reads model artifacts; it never writes them
+    depends_on:
+      batch: { condition: service_completed_successfully }
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 6
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+    image: uplift-web:${UPLIFT_IMAGE_TAG:-local}
+    ports:
+      - "${UPLIFT_PORT:-8080}:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  uplift-data:
+  uplift-db:
